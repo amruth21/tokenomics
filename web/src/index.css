@@ -15,4 +15,24 @@
 }
 
 html, body, #root { height: 100%; }
-body { background: var(--color-ink); color: #e8edf5; font-family: var(--font-display); }
+body {
+  background: var(--color-ink);
+  color: #e8edf5;
+  font-family: var(--font-display);
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+
+* { box-sizing: border-box; }
+
+::selection { background: color-mix(in srgb, var(--color-accent) 35%, transparent); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-2);
+  border-radius: 999px;
+  border: 2px solid var(--color-ink);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-line); }
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
