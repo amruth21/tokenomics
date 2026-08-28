@@ -15,7 +15,10 @@ export interface FileLine {
   record: RawRecord
 }
 
-const DEFAULT_EXCLUDE_SUBSTRINGS = ['-Users-amruthnare-Documents-Buildathon']
+// Self-referential exclusion: analysing this project's own transcripts inside this
+// project skews the numbers. Matched loosely so it works for any user's checkout,
+// not just the machine it was developed on.
+const DEFAULT_EXCLUDE_SUBSTRINGS = ['Documents-Buildathon', 'tokenomics']
 
 export interface SelectFilesOptions {
   /** Extra path substrings to exclude, in addition to the self-referential default. */
