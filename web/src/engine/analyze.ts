@@ -434,9 +434,6 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
     }
   }
 
-  const rework = detectRework(facts) // used for advice too; reuse computed cases via rules module export
-  const loops = detectToolLoops(facts)
-
   const analysis: Analysis = {
     meta: {
       sessions: sessions.size,
@@ -460,8 +457,8 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
     recurring: buildRecurring(facts),
     subagents: buildSubagents(facts),
     habits: { calendar, hourByWeekday: habitsHourByWeekday },
-    rework: { errorRate: toolResultTotal > 0 ? errorTotal / toolResultTotal : 0, cases: reworkCasesFromRecs(rework) },
-    loops: { cases: loopCasesFromRecs(loops) },
+    rework: { errorRate: toolResultTotal > 0 ? errorTotal / toolResultTotal : 0, cases: reworkCasesFromRecs(reworkRecs) },
+    loops: { cases: loopCasesFromRecs(loopRecs) },
     advice,
   }
 
@@ -535,7 +532,7 @@ function classifyError(content: unknown): string {
 function annuityCostForTool(
   name: string,
   toolCalls: ToolCallFact[],
-  sessions: Map<string, SessionFact>,
+  _sessions: Map<string, SessionFact>,
   sessionTurnSeq: Map<string, number>,
 ): number {
   let total = 0
