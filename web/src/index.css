@@ -1,87 +1,94 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Archivo:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Tokenomics — a single committed dark theme.
-   Warm charcoal tinted toward ochre. Deliberately NOT sky-on-near-black:
-   that palette is the generic-AI look this project is designed against.
-   Colour carries meaning here — ochre draws the eye, burn marks loss,
-   cash marks what is working. Decorative colour is a bug.
+   TOKENOMICS — brutalist terminal ledger, light.
+   Carbon ink on warm tractor-feed paper. Monospace throughout. Hard edges
+   only: no radius, no shadow, no gradient, no blur. Colour is a status channel.
 --------------------------------------------------------------------------- */
 @theme {
-  /* Ground: warm charcoal, never pure black */
-  --color-ink: #151109;
-  --color-surface: #1d1810;
-  --color-surface-2: #262019;
-  --color-line: #362e23;
-  --color-line-soft: #29221a;
+  --color-ink: #f3eee4;        /* ground — cream paper, never white */
+  --color-surface: #ebe4d4;
+  --color-surface-2: #e0d6c4;
+  --color-line: #c4b49a;       /* hard rules */
+  --color-line-soft: #d4c8b0;
 
-  /* Type */
-  --color-text: #f2ece0;
-  --color-text-dim: #c3b8a5;
-  --color-muted: #8e8271;
+  --color-text: #1c1914;
+  --color-text-dim: #3f3a32;
+  --color-muted: #6e6658;
 
-  /* Meaning */
-  --color-accent: #d99a2b;   /* ochre — attention, the thing to look at */
-  --color-accent-dim: #8a6218;
-  --color-burn: #c4553d;     /* terracotta — loss, waste */
-  --color-cash: #869c5a;     /* olive — saved, working, keep doing this */
-  --color-warn: #c98a3a;
+  --color-accent: #b56a12;     /* ochre stamp — look here */
+  --color-accent-dim: #8a520e;
+  --color-burn: #b83a1a;       /* rust — loss */
+  --color-cash: #3d6b2e;       /* forest — working */
+  --color-warn: #9a5a0a;
 
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: "IBM Plex Mono", ui-monospace, monospace;
 
-  /* Fluid display sizes — the number is the hero */
-  --text-hero: clamp(3.25rem, 7vw, 5.75rem);
-  --text-figure: clamp(2rem, 3.5vw, 3rem);
-  --text-lede: clamp(1.05rem, 1.5vw, 1.375rem);
-
-  /* Exponential easing — real objects decelerate smoothly */
-  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --text-hero: clamp(2.75rem, 6vw, 4.75rem);
+  --text-figure: clamp(1.5rem, 2.6vw, 2.25rem);
+  --text-lede: clamp(0.95rem, 1.25vw, 1.15rem);
 }
+
+html { color-scheme: light; }
 
 html, body, #root { height: 100%; }
 
 body {
   background: var(--color-ink);
   color: var(--color-text);
-  font-family: var(--font-sans);
-  font-feature-settings: "tnum" 1, "cv05" 1;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Every figure is tabular. Money that shifts width while animating reads as sloppy. */
-.num {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
+/* Hard edges, everywhere, no exceptions. */
+*, *::before, *::after { border-radius: 0 !important; box-shadow: none !important; }
 
-/* Display type: Fraunces at low softness, tight tracking, optical sizing on. */
-.display {
-  font-family: var(--font-display);
-  font-optical-sizing: auto;
+.num { font-variant-numeric: tabular-nums; }
+
+.display { font-weight: 700; letter-spacing: -0.02em; line-height: 0.98; }
+
+/* Uppercase key — the label half of every key/value pair in the ledger. */
+.key {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: -0.022em;
-  line-height: 0.95;
+  color: var(--color-muted);
 }
 
-/* A hairline rule that carries the accent without becoming decoration. */
-.rule-accent {
-  height: 2px;
-  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-dim) 38%, transparent 100%);
+/* Structural rules, drawn not decorated. */
+.rule { height: 1px; background: var(--color-line); }
+.rule-accent { height: 1px; background: var(--color-accent); }
+.rule-double { border-top: 3px double var(--color-line); }
+
+/* Dotted leader between a key and its value, like a printed ledger line. */
+.leader {
+  flex: 1;
+  border-bottom: 1px dotted var(--color-line);
+  margin: 0 0.6rem 0.28rem;
+}
+
+/* Blinking block cursor — used once, in the masthead. */
+@keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+.cursor {
+  display: inline-block;
+  width: 0.55em; height: 1em;
+  background: var(--color-accent);
+  vertical-align: -0.12em;
+  animation: blink 1.1s steps(1) infinite;
 }
 
 ::selection { background: var(--color-accent); color: var(--color-ink); }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: var(--color-ink); }
-::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 999px; border: 2px solid var(--color-ink); }
-::-webkit-scrollbar-thumb:hover { background: var(--color-line); }
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--color-ink); border-left: 1px solid var(--color-line-soft); }
+::-webkit-scrollbar-thumb { background: var(--color-line); }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .cursor { animation: none; }
 }

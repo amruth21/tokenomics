@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { Analysis } from '../types/analysis'
 import { ResponsiveCalendar } from '@nivo/calendar'
-import { nivoDarkTheme } from '../charts/theme'
+import { nivoTheme, calendarEmpty, calendarColors, calendarBorder } from '../charts/theme'
 import { EmptyState, Panel, ViewHeader, ViewSkeleton, money } from './_shared'
 
 const WEEKDAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -28,25 +28,25 @@ export default function HabitsView({ data }: { data: Analysis }) {
       />
 
       <Panel className="mb-6" delay={0.1}>
-        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Daily spend</div>
+        <div className="mb-3 text-sm font-medium text-[var(--color-text)]">Daily spend</div>
         <div className="h-40">
           {from && to && (
             <ResponsiveCalendar
               data={habits.calendar}
               from={from}
               to={to}
-              theme={nivoDarkTheme}
-              emptyColor="#262019"
-              colors={['#0f2818', '#16401f', '#1f6b2c', '#2fa83e', '#869c5a']}
+              theme={nivoTheme}
+              emptyColor={calendarEmpty}
+              colors={calendarColors}
               margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
               yearSpacing={40}
-              monthBorderColor="#1d1810"
+              monthBorderColor={calendarBorder}
               dayBorderWidth={2}
-              dayBorderColor="#1d1810"
+              dayBorderColor={calendarBorder}
               tooltip={({ day, value }) => (
-                <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
+                <div className="border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-xs">
                   <div className="text-[var(--color-muted)]">{day}</div>
-                  <div className="font-mono font-semibold text-[#f2ece0]">{money(Number(value))}</div>
+                  <div className="font-mono font-semibold text-[var(--color-text)]">{money(Number(value))}</div>
                 </div>
               )}
             />
@@ -54,15 +54,15 @@ export default function HabitsView({ data }: { data: Analysis }) {
         </div>
         <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-[var(--color-muted)]">
           <span>less</span>
-          {['#262019', '#0f2818', '#16401f', '#1f6b2c', '#2fa83e', '#869c5a'].map((c) => (
-            <span key={c} className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />
+          {[calendarEmpty, ...calendarColors].map((c) => (
+            <span key={c} className="h-2.5 w-2.5" style={{ background: c }} />
           ))}
           <span>more</span>
         </div>
       </Panel>
 
       <Panel delay={0.2}>
-        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Hour of day × weekday</div>
+        <div className="mb-3 text-sm font-medium text-[var(--color-text)]">Hour of day × weekday</div>
         <div className="overflow-x-auto">
           <div className="grid min-w-[720px] grid-cols-[3rem_repeat(24,1fr)] gap-[3px]">
             <div />
@@ -82,9 +82,9 @@ export default function HabitsView({ data }: { data: Analysis }) {
                     <div
                       key={`${wd}-${h}`}
                       title={`${wd} ${h}:00 — $${v}`}
-                      className="aspect-square rounded-[3px]"
+                      className="aspect-square"
                       style={{
-                        background: intensity === 0 ? '#262019' : `rgba(74, 222, 128, ${0.12 + intensity * 0.85})`,
+                        background: intensity === 0 ? calendarEmpty : `rgba(181, 106, 18, ${0.18 + intensity * 0.82})`,
                       }}
                     />
                   )

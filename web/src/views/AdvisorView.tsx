@@ -1,124 +1,116 @@
 import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import type { Analysis } from '../types/analysis'
-import type { Recommendation } from '../types/analysis'
-import { Badge, EmptyState, Panel, ViewHeader, ViewSkeleton, money } from './_shared'
+import type { Analysis, Recommendation } from '../types/analysis'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Badge, EmptyState, Lede, Masthead, N, Page, ViewSkeleton, money, rise, EASE } from './_shared'
 
-export default function AdvisorView({ data }: { data: Analysis }) {
-  if (!data) return <ViewSkeleton />
-  const { advice } = data
-  if (!advice || advice.length === 0) {
-    return <EmptyState title="No advice yet" body="Deterministic recommendations, each with evidence, show up here once we've analyzed enough sessions." />
-  }
-
-  const totalMonthly = advice.reduce((s, a) => s + a.monthlySaving, 0)
-
+function Card({ r, i }: { r: Recommendation; i: number }) {
+  const [open, setOpen] = useState(false)
+  const tone = r.monthlySaving >= 50 ? 'var(--color-burn)' : 'var(--color-accent)'
   return (
-    <div className="p-8">
-      <ViewHeader
-        eyebrow="Advisor"
-        title="What to actually change."
-        subtitle="Every card below is computed from your own history — not a generic tip. Open the evidence drawer to see the exact sessions and turns behind the number."
-      />
-
-      <Panel delay={0.1} className="mb-6 border-[var(--color-cash)]/25">
-        <div className="text-sm text-[var(--color-muted)]">If you acted on everything below</div>
-        <div className="mt-1 font-mono text-4xl font-bold tabular-nums text-[var(--color-cash)]">
-          {money(totalMonthly)}
-          <span className="ml-2 text-base font-normal text-[var(--color-muted)]">/mo</span>
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.28 + i * 0.07, duration: 0.55, ease: EASE }}
+      className="border border-[var(--color-line-soft)] bg-[var(--color-surface)]"
+    >
+      <div className="grid gap-5 p-5 sm:grid-cols-[1fr_auto] sm:items-start">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="key !text-[var(--color-accent)]">{r.category}</span>
+            <Badge tone={r.confidence}>{r.confidence}</Badge>
+          </div>
+          <h3 className="mt-2.5 text-[0.98rem] font-semibold leading-snug text-[var(--color-text)]">
+            {r.title}
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-text-dim)]">{r.body}</p>
+          <div className="mt-4 border-l-2 border-[var(--color-accent-dim)] pl-3">
+            <p className="key">FIX</p>
+            <p className="mt-1 text-sm leading-relaxed text-[var(--color-text-dim)]">{r.fix}</p>
+          </div>
         </div>
-      </Panel>
-
-      <div className="space-y-4">
-        {advice
-          .slice()
-          .sort((a, b) => b.monthlySaving - a.monthlySaving)
-          .map((rec, i) => (
-            <AdviceCard key={rec.id} rec={rec} delay={0.06 * i} />
-          ))}
+        <div className="sm:min-w-[8.5rem] sm:text-right">
+          <p className="key">PER MONTH</p>
+          <p className="display num mt-1 text-[length:var(--text-figure)]" style={{ color: tone }}>
+            {money(r.monthlySaving)}
+          </p>
+        </div>
       </div>
-    </div>
+
+      {r.evidence.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex w-full items-center gap-2 border-t border-[var(--color-line-soft)] px-5 py-2.5 text-left text-[0.7rem] uppercase tracking-[0.14em] text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-accent)]"
+          >
+            <span className="text-[var(--color-accent)]">{open ? '▾' : '▸'}</span>
+            evidence · {r.evidence.length} {r.evidence.length === 1 ? 'entry' : 'entries'}
+          </button>
+          <AnimatePresence initial={false}>
+            {open && (
+              <motion.div
+                initial={{ gridTemplateRows: '0fr', opacity: 0 }}
+                animate={{ gridTemplateRows: '1fr', opacity: 1 }}
+                exit={{ gridTemplateRows: '0fr', opacity: 0 }}
+                transition={{ duration: 0.28, ease: EASE }}
+                className="grid overflow-hidden"
+              >
+                <div className="min-h-0">
+                  <table className="w-full text-[0.78rem]">
+                    <tbody>
+                      {r.evidence.map((e, k) => (
+                        <tr key={k} className="border-t border-[var(--color-line-soft)]">
+                          <td className="w-0 py-2 pl-5 pr-3 align-top text-[var(--color-muted)]">
+                            {String(k + 1).padStart(2, '0')}
+                          </td>
+                          <td className="py-2 pr-3 align-top text-[var(--color-text-dim)]">{e.label}</td>
+                          <td className="num whitespace-nowrap py-2 pr-3 text-right align-top text-[var(--color-muted)]">
+                            {e.turns} turns
+                          </td>
+                          <td className="num whitespace-nowrap py-2 pr-5 text-right align-top text-[var(--color-text)]">
+                            {money(e.cost)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
+    </motion.article>
   )
 }
 
-const categoryLabel: Record<Recommendation['category'], string> = {
-  loop: 'Loop',
-  context: 'Context',
-  routing: 'Routing',
-  habit: 'Habit',
-}
-
-function AdviceCard({ rec, delay }: { rec: Recommendation; delay: number }) {
-  const [open, setOpen] = useState(false)
+export default function AdvisorView({ data }: { data: Analysis }) {
+  if (!data) return <ViewSkeleton />
+  const advice = [...(data.advice ?? [])].sort((a, b) => b.monthlySaving - a.monthlySaving)
+  if (advice.length === 0) {
+    return <EmptyState title="NO FINDINGS" body="Nothing worth flagging in this window — which is itself a result." />
+  }
+  const total = advice.reduce((s, r) => s + r.monthlySaving, 0)
+  const solid = advice.filter((r) => r.confidence === 'high').length
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay, ease: 'easeOut' }}
-      className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface)] p-6"
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge>{categoryLabel[rec.category]}</Badge>
-            <Badge tone={rec.confidence}>{rec.confidence}</Badge>
-          </div>
-          <h3 className="text-lg font-semibold text-[#f2ece0]">{rec.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--color-muted)]">{rec.body}</p>
-          <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[#f2ece0]">
-            <span className="text-[var(--color-accent)]">Fix: </span>
-            {rec.fix}
-          </div>
+    <Page>
+      <Masthead eyebrow="tokenomics --advise" />
+      <motion.div {...rise(0.06)} className="mb-5">
+        <p className="key">ADDRESSABLE PER MONTH</p>
+        <div className="display num mt-1 text-[length:var(--text-hero)] text-[var(--color-accent)]">
+          {money(total)}
         </div>
-        <div className="shrink-0 text-right">
-          <div className="font-mono text-2xl font-bold tabular-nums text-[var(--color-cash)]">
-            {money(rec.monthlySaving)}
-          </div>
-          <div className="text-xs text-[var(--color-muted)]">/mo</div>
-        </div>
+      </motion.div>
+      <Lede delay={0.16}>
+        <N>{advice.length}</N> findings, <N tone="cash">{solid}</N> at high confidence. Every figure
+        opens to the exact turns it came from — the numbers are reproducible from your own machine.
+      </Lede>
+      <div className="mt-10 space-y-3">
+        {advice.map((r, i) => (
+          <Card key={r.id} r={r} i={i} />
+        ))}
       </div>
-
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:underline"
-      >
-        {open ? 'Hide evidence' : `Show evidence (${rec.evidence.length})`}
-        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          ▾
-        </motion.span>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="overflow-hidden"
-          >
-            <div className="mt-3 space-y-2 border-t border-[var(--color-line)] pt-3">
-              {rec.evidence.map((ev, i) => (
-                <div
-                  key={`${ev.sessionId}-${i}`}
-                  className="flex flex-col gap-1 rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="font-mono text-[var(--color-muted)]">session {ev.sessionId}</div>
-                    <div className="mt-0.5 text-[#f2ece0]">{ev.label}</div>
-                  </div>
-                  <div className="flex shrink-0 gap-4 font-mono tabular-nums text-[var(--color-muted)]">
-                    <span>{ev.turns} turns</span>
-                    <span className="text-[#f2ece0]">{money(ev.cost)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+    </Page>
   )
 }

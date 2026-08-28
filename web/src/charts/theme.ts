@@ -1,57 +1,64 @@
-// Shared nivo dark theme so every chart in the app reads as one system.
+// Shared nivo theme so every chart in the app reads as one system.
 // Matches the design tokens in src/index.css (--color-ink / surface / line / muted).
 
-export const nivoDarkTheme = {
+export const nivoTheme = {
   background: 'transparent',
   text: {
-    fill: '#8e8271',
-    fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+    fill: '#6e6658',
+    fontFamily: 'IBM Plex Mono, ui-monospace, monospace',
     fontSize: 11,
   },
   axis: {
-    domain: { line: { stroke: '#362e23', strokeWidth: 1 } },
+    domain: { line: { stroke: '#c4b49a', strokeWidth: 1 } },
     ticks: {
-      line: { stroke: '#362e23', strokeWidth: 1 },
-      text: { fill: '#8e8271', fontSize: 11 },
+      line: { stroke: '#c4b49a', strokeWidth: 1 },
+      text: { fill: '#6e6658', fontSize: 11 },
     },
-    legend: { text: { fill: '#8e8271', fontSize: 12 } },
+    legend: { text: { fill: '#6e6658', fontSize: 12 } },
   },
-  grid: { line: { stroke: '#29221a', strokeWidth: 1 } },
-  legends: { text: { fill: '#8e8271', fontSize: 11 } },
+  grid: { line: { stroke: '#d4c8b0', strokeWidth: 1 } },
+  legends: { text: { fill: '#6e6658', fontSize: 11 } },
   tooltip: {
     container: {
-      background: '#262019',
-      color: '#f2ece0',
+      background: '#ebe4d4',
+      color: '#1c1914',
       fontSize: 12,
-      borderRadius: 8,
-      border: '1px solid #362e23',
-      boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+      borderRadius: 0,
+      border: '1px solid #c4b49a',
+      boxShadow: 'none',
     },
   },
-  crosshair: { line: { stroke: '#d99a2b', strokeWidth: 1, strokeOpacity: 0.5 } },
-  labels: { text: { fill: '#f2ece0' } },
-  annotations: { text: { fill: '#f2ece0' } },
+  crosshair: { line: { stroke: '#b56a12', strokeWidth: 1, strokeOpacity: 0.5 } },
+  labels: { text: { fill: '#1c1914' } },
+  annotations: { text: { fill: '#1c1914' } },
 } as const
 
+/** @deprecated use nivoTheme — kept so existing imports compile */
+export const nivoDarkTheme = nivoTheme
+
 // Categorical palette: cash-green as the "good/productive" anchor, burn-red as the
-// "waste" anchor, rest are neutral blues/violets. Keep this order stable across charts.
+// "waste" anchor, rest are ink-adjacent ochres. Keep this order stable across charts.
 export const moneyPalette = [
-  '#869c5a', // cash — productive
-  '#d99a2b', // accent
-  '#9c6f4e',
-  '#c98a3a', // warn
-  '#b8843c',
-  '#7a8f6a',
-  '#c4553d', // burn — waste
-  '#8e8271',
+  '#3d6b2e', // cash — productive
+  '#b56a12', // accent
+  '#8a5a3c',
+  '#9a5a0a', // warn
+  '#c47a14',
+  '#5a6e48',
+  '#b83a1a', // burn — waste
+  '#6e6658',
 ]
 
 export const modelColor: Record<string, string> = {
-  'claude-opus-5': '#c4553d',
-  'claude-opus-4-8': '#c4553d',
-  'claude-sonnet-5': '#d99a2b',
-  'claude-haiku-4-5-20251001': '#869c5a',
+  'claude-opus-5': '#b83a1a',
+  'claude-opus-4-8': '#b83a1a',
+  'claude-sonnet-5': '#b56a12',
+  'claude-haiku-4-5-20251001': '#3d6b2e',
 }
+
+export const calendarEmpty = '#e0d6c4'
+export const calendarColors = ['#ead9a8', '#d9b45a', '#c47a14', '#b56a12', '#b83a1a']
+export const calendarBorder = '#f3eee4'
 
 export function formatMoney(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 })

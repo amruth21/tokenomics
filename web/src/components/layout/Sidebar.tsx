@@ -45,11 +45,13 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
     >
       <div className={clsx('flex items-center gap-2 px-4 pt-5 pb-4', collapsed && 'justify-center px-0')}>
         {collapsed ? (
-          <span className="display text-2xl text-[var(--color-accent)]">T</span>
+          <span className="display text-xl text-[var(--color-accent)]">$_</span>
         ) : (
-          <div className="leading-none">
-            <span className="display text-xl text-[var(--color-text)]">Tokenomics</span>
-            <span className="mt-1 block h-px w-full bg-[var(--color-accent)]/45" />
+          <div className="w-full leading-none">
+            <span className="display text-base tracking-tight text-[var(--color-text)]">
+              TOKENOMICS<span className="text-[var(--color-accent)]">_</span>
+            </span>
+            <div className="rule-accent mt-2" />
           </div>
         )}
       </div>
@@ -65,17 +67,17 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
               onClick={() => onSelect(item.id)}
               title={collapsed ? item.label : undefined}
               className={clsx(
-                'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
+                'group relative flex w-full items-center gap-3 border-l-2 px-3 py-2 text-[0.78rem] uppercase tracking-[0.1em] transition-colors',
                 collapsed && 'justify-center px-0',
                 active
-                  ? 'bg-[var(--color-surface)] text-[#f2ece0]'
-                  : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[#f2ece0]',
+                  ? 'border-[var(--color-accent)] bg-[var(--color-surface)] text-[var(--color-text)]'
+                  : 'border-transparent text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[var(--color-text)]',
               )}
             >
               {active && (
                 <motion.span
                   layoutId="sidebar-active"
-                  className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-[var(--color-accent)]"
+                  className="absolute left-0 top-0 h-full w-[2px] bg-[var(--color-accent)]"
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 />
               )}
@@ -91,7 +93,7 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
           type="button"
           onClick={onToggleCollapsed}
           className={clsx(
-            'mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[#f2ece0]',
+            'mb-2 flex w-full items-center gap-2 px-2 py-1.5 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]',
             collapsed && 'justify-center',
           )}
         >
@@ -99,11 +101,11 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
           {!collapsed && 'Collapse'}
         </button>
 
-        <div className={clsx('flex items-center gap-2 rounded-lg px-2 py-2', collapsed && 'justify-center px-0')}>
+        <div className={clsx('flex items-center gap-2 px-2 py-2', collapsed && 'justify-center px-0')}>
           <SourceIcon size={15} className="shrink-0 text-[var(--color-accent)]" strokeWidth={1.75} />
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-[#f2ece0]">{SOURCE_LABEL[meta.source]}</p>
+              <p className="truncate text-xs font-medium text-[var(--color-text)]">{SOURCE_LABEL[meta.source]}</p>
               <p className="truncate text-[11px] tabular-nums text-[var(--color-muted)]">
                 {formatRange(meta.from, meta.to)}
               </p>

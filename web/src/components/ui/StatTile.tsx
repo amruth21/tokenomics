@@ -72,7 +72,7 @@ export default function StatTile({
       <span
         ref={ref}
         className={clsx(
-          'font-semibold tabular-nums text-[#f2ece0]',
+          'font-semibold tabular-nums text-[var(--color-text)]',
           size === 'lg' ? 'text-4xl md:text-5xl' : 'text-2xl',
         )}
       >

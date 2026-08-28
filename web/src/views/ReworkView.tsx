@@ -1,71 +1,78 @@
-import { motion } from 'framer-motion'
 import type { Analysis } from '../types/analysis'
-import { EmptyState, Panel, StatTile, ViewHeader, ViewSkeleton, money, pct } from './_shared'
+import { motion } from 'framer-motion'
+import { EmptyState, Lede, Masthead, N, Page, RankRow, Section, ViewSkeleton, money, pct, rise } from './_shared'
 
 export default function ReworkView({ data }: { data: Analysis }) {
   if (!data) return <ViewSkeleton />
-  const { rework } = data
-  if (!rework || rework.cases.length === 0) {
-    return <EmptyState title="No rework detected" body="No file was edited 3+ times in a session — nothing to flag." />
+  const rw = data.rework
+  if (!rw) return <ViewSkeleton />
+  const cases = [...(rw.cases ?? [])].sort((a, b) => b.edits - a.edits)
+  const worst = cases[0]
+  const maxEdits = worst?.edits || 1
+  const totalCost = cases.reduce((s, c) => s + c.cost, 0)
+
+  if (cases.length === 0 && rw.errorRate === 0) {
+    return <EmptyState title="CLEAN RUN" body="No repeat edits and no failed tool calls in this window." />
   }
 
-  const worst = rework.cases.slice().sort((a, b) => b.edits - a.edits)[0]
-  const totalCost = rework.cases.reduce((s, c) => s + c.cost, 0)
-  const maxEdits = Math.max(1, ...rework.cases.map((c) => c.edits))
-
   return (
-    <div className="p-8">
-      <ViewHeader
-        eyebrow="Rework"
-        title="You paid for the same file more than once."
-        subtitle="Every case here is a file edited 3+ times in one session, plus the tool-error rate across the whole corpus — declined transactions that still cost a turn."
-      />
-
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile label="Rework cases" value={rework.cases.length} />
-        <StatTile label="Worst case" value={`${worst?.edits}x`} sub={worst?.path} tone="burn" />
-        <StatTile label="Total rework cost" value={money(totalCost)} tone="warn" />
-        <StatTile label="Tool error rate" value={pct(rework.errorRate)} sub="declined transactions" tone="burn" />
-      </div>
-
-      <Panel delay={0.15}>
-        <div className="mb-4 text-sm font-medium text-[#f2ece0]">Files paid for more than once</div>
-        <div className="space-y-3">
-          {rework.cases
-            .slice()
-            .sort((a, b) => b.edits - a.edits)
-            .map((c, i) => (
-              <motion.div
-                key={`${c.sessionId}-${c.path}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.06 * i, duration: 0.35 }}
-                className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono text-sm text-[#f2ece0]">{c.path}</div>
-                    <div className="mt-0.5 text-xs text-[var(--color-muted)]">session {c.sessionId}</div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-mono text-sm font-semibold tabular-nums text-[var(--color-burn)]">
-                      {c.edits}x edited
-                    </div>
-                    <div className="font-mono text-xs tabular-nums text-[var(--color-muted)]">{money(c.cost)}</div>
-                  </div>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--color-surface)]">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(c.edits / maxEdits) * 100}%` }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                    className="h-full rounded-full bg-[var(--color-burn)]"
-                  />
-                </div>
-              </motion.div>
-            ))}
+    <Page>
+      <Masthead eyebrow="tokenomics --rework --declined" />
+      <motion.div {...rise(0.06)} className="mb-5">
+        <p className="key">DECLINED TRANSACTIONS</p>
+        <div className="display num mt-1 text-[length:var(--text-hero)] text-[var(--color-burn)]">
+          {pct(rw.errorRate, 1)}
         </div>
-      </Panel>
-    </div>
+      </motion.div>
+
+      <Lede delay={0.16}>
+        {pct(rw.errorRate, 1)} of tool calls came back as errors, and each one burned a full turn
+        before producing anything.
+        {worst && (
+          <>
+            {' '}The worst file was rewritten <N tone="burn">{worst.edits}</N> times in a single
+            session — you paid for it {worst.edits} times over.
+          </>
+        )}
+      </Lede>
+
+      {cases.length > 0 && (
+        <Section
+          title="REPEAT EDITS"
+          note="Same file written 3+ times inside one session. Usually a sign the approach was not settled before the edits started."
+          delay={0.28}
+        >
+          <div>
+            {cases.slice(0, 12).map((c, i) => (
+              <RankRow
+                key={`${c.sessionId}-${c.path}-${i}`}
+                rank={i + 1}
+                label={c.path.split('/').slice(-2).join('/')}
+                meta={`session ${c.sessionId.slice(0, 8)} · ${c.edits} writes`}
+                fraction={c.edits / maxEdits}
+                value={`${c.edits}×`}
+                tone={i === 0 ? 'burn' : 'accent'}
+                delay={0.34 + i * 0.04}
+              />
+            ))}
+          </div>
+          <div className="rule-double mt-6 pt-3 text-right">
+            <span className="key">ATTRIBUTED COST </span>
+            <span className="display num ml-2 text-lg text-[var(--color-burn)]">{money(totalCost)}</span>
+          </div>
+        </Section>
+      )}
+
+      <Section title="WHAT TO DO" delay={0.5}>
+        <div className="border-l-2 border-[var(--color-accent-dim)] bg-[var(--color-surface)] p-5">
+          <p className="text-sm leading-relaxed text-[var(--color-text-dim)]">
+            Rework is the cheapest waste to remove because it needs no new tooling. Settle the
+            approach before the first write — plan mode exists for exactly this shape of work — and
+            fix the recurring tool failures at their source: a missing path in CLAUDE.md, a command
+            that needs an allowlist entry, a directory the agent never had.
+          </p>
+        </div>
+      </Section>
+    </Page>
   )
 }

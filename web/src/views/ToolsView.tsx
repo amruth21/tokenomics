@@ -1,96 +1,65 @@
 import type { Analysis } from '../types/analysis'
-import { ResponsiveTreeMap } from '@nivo/treemap'
-import { nivoDarkTheme, moneyPalette } from '../charts/theme'
-import { EmptyState, Panel, StatTile, ViewHeader, ViewSkeleton, money } from './_shared'
+import { EmptyState, Lede, Masthead, N, Page, RankRow, Section, ViewSkeleton, compactTokens, money, rise } from './_shared'
+import { motion } from 'framer-motion'
 
 export default function ToolsView({ data }: { data: Analysis }) {
   if (!data) return <ViewSkeleton />
-  const { tools } = data
-  if (!tools || tools.length === 0) {
-    return <EmptyState title="No tool payloads yet" body="Once sessions load, tool payload sizes and their re-read cost show up here." />
-  }
+  const tools = [...(data.tools ?? [])].sort((a, b) => b.annuityCost - a.annuityCost)
+  if (tools.length === 0) return <EmptyState title="NO TOOL CALLS" body="No tool output was recorded in this window." />
 
-  const screenshot = tools.find((t) => t.name === 'browser_take_screenshot')
+  const worst = tools[0]
+  const maxCost = worst.annuityCost || 1
   const totalAnnuity = tools.reduce((s, t) => s + t.annuityCost, 0)
-  const totalBytes = tools.reduce((s, t) => s + t.bytes, 0)
-
-  const treeData = {
-    id: 'tools',
-    children: tools.map((t) => ({ id: t.name, value: t.bytes, annuityCost: t.annuityCost, calls: t.calls })),
-  }
 
   return (
-    <div className="p-8">
-      <ViewHeader
-        eyebrow="Tool payloads"
-        title="A fat tool result isn't a one-time charge."
-        subtitle="It's an annuity: every byte a tool returns sits in context and gets re-read on every later turn in the session, at cache-read rates, until the session ends."
-      />
-
-      {screenshot && (
-        <Panel delay={0.1} className="mb-6 border-[var(--color-burn)]/25">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="text-sm text-[var(--color-muted)]">The headline offender</div>
-              <div className="mt-1 text-lg text-[#f2ece0]">
-                One <span className="font-mono">browser_take_screenshot</span> = 153 KB ≈{' '}
-                <span className="font-mono tabular-nums text-[var(--color-burn)]">38k tokens</span> — re-read on every
-                later turn in that session.
-              </div>
-            </div>
-            <div className="shrink-0 text-right">
-              <div className="font-mono text-2xl font-bold tabular-nums text-[var(--color-burn)]">
-                {money(screenshot.annuityCost)}
-              </div>
-              <div className="text-xs text-[var(--color-muted)]">annuity cost, {screenshot.calls} calls</div>
-            </div>
-          </div>
-        </Panel>
-      )}
-
-      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile label="Tool bytes total" value={`${(totalBytes / 1_000_000).toFixed(1)} MB`} />
-        <StatTile label="Annuity cost total" value={money(totalAnnuity)} tone="burn" />
-        <StatTile label="Distinct tools" value={tools.length} />
-        <StatTile
-          label="Worst $/call"
-          value={money(Math.max(...tools.map((t) => t.annuityCost / Math.max(1, t.calls))))}
-        />
-      </div>
-
-      <Panel className="h-[420px]" delay={0.2}>
-        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Tool payload bytes, sized by re-read annuity cost</div>
-        <div className="h-[360px]">
-          <ResponsiveTreeMap
-            data={treeData}
-            theme={nivoDarkTheme}
-            identity="id"
-            value="value"
-            valueFormat={(v) => `${(v / 1000).toFixed(0)} KB`}
-            margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-            labelSkipSize={28}
-            label={(n) => n.id}
-            labelTextColor="#0a0d12"
-            parentLabelPosition="top"
-            borderColor="#1d1810"
-            borderWidth={2}
-            colors={moneyPalette}
-            colorBy="id"
-            nodeOpacity={1}
-            animate
-            motionConfig="gentle"
-            tooltip={({ node }) => (
-              <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
-                <div className="font-medium text-[#f2ece0]">{node.id}</div>
-                <div className="text-[var(--color-muted)]">{(node.value / 1000).toFixed(0)} KB payload</div>
-                <div className="font-mono tabular-nums text-[var(--color-burn)]">
-                  {money((node.data as unknown as { annuityCost: number }).annuityCost)} annuity
-                </div>
-              </div>
-            )}
-          />
+    <Page>
+      <Masthead eyebrow="tokenomics --tools --sort annuity" />
+      <motion.div {...rise(0.06)} className="mb-5">
+        <p className="key">RE-READ COST OF TOOL OUTPUT</p>
+        <div className="display num mt-1 text-[length:var(--text-hero)] text-[var(--color-burn)]">
+          {money(totalAnnuity)}
         </div>
-      </Panel>
-    </div>
+      </motion.div>
+
+      <Lede delay={0.16}>
+        A fat tool result is not a one-time charge, it is an annuity. One{' '}
+        <span className="text-[var(--color-text)]">{worst.name}</span> returns{' '}
+        <N tone="burn">{compactTokens(worst.avgTokens)}</N> tokens, and every turn after it in the
+        session pays to read them again.
+      </Lede>
+
+      <Section title="VENDORS BY RE-READ COST" note="Ranked by what the payload costs across the rest of the session, not by call count." delay={0.28}>
+        <div>
+          {tools.map((t, i) => (
+            <RankRow
+              key={t.name}
+              rank={i + 1}
+              label={t.name}
+              meta={`${t.calls.toLocaleString()} calls · ${compactTokens(t.avgTokens)} tok avg · ${(t.bytes / 1e6).toFixed(2)} MB total`}
+              fraction={t.annuityCost / maxCost}
+              value={money(t.annuityCost)}
+              tone={i === 0 ? 'burn' : 'accent'}
+              delay={0.34 + i * 0.05}
+            />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="THE ARITHMETIC" delay={0.5}>
+        <div className="border border-[var(--color-line-soft)] bg-[var(--color-surface)] p-5 text-sm leading-relaxed">
+          <pre className="overflow-x-auto text-[0.78rem] text-[var(--color-text-dim)]">
+{`payload        ${compactTokens(worst.avgTokens).padStart(8)} tokens
+× turns after it in session
+× cache-read rate
+────────────────────────────────
+annuity        ${money(worst.annuityCost).padStart(8)}  ← ${worst.name}`}
+          </pre>
+          <p className="mt-4 text-[var(--color-muted)]">
+            Cheapest fix: capture to a file and read it only when you need to look. Prefer a
+            structured snapshot over a full screenshot when you are asserting, not inspecting.
+          </p>
+        </div>
+      </Section>
+    </Page>
   )
 }

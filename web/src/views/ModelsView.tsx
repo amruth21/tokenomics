@@ -1,168 +1,156 @@
 import { useState } from 'react'
 import type { Analysis } from '../types/analysis'
 import { motion } from 'framer-motion'
-import { modelColor } from '../charts/theme'
-import { EmptyState, Panel, StatTile, ViewHeader, ViewSkeleton, money, pct } from './_shared'
+import { EmptyState, Lede, Masthead, N, Page, Section, ViewSkeleton, compactTokens, money, rise, EASE } from './_shared'
+
+const SHORT: Record<string, string> = {
+  'claude-opus-5': 'OPUS 5',
+  'claude-opus-4-8': 'OPUS 4.8',
+  'claude-sonnet-5': 'SONNET 5',
+  'claude-haiku-4-5-20251001': 'HAIKU 4.5',
+}
+const short = (m: string) => SHORT[m] ?? m.replace('claude-', '').toUpperCase()
 
 export default function ModelsView({ data }: { data: Analysis }) {
+  const [pctRouted, setPctRouted] = useState(30)
   if (!data) return <ViewSkeleton />
-  const { models } = data
-  if (!models || models.length === 0) {
-    return <EmptyState title="No model mix yet" body="Model allocation and the downgrade simulator show up once sessions load." />
-  }
+  const models = [...(data.models ?? [])].sort((a, b) => b.cost - a.cost)
+  if (models.length === 0) return <EmptyState title="NO MODEL DATA" body="No priced turns in this window." />
 
-  return <ModelsViewBody models={models} />
-}
-
-function ModelsViewBody({ models }: { models: Analysis['models'] }) {
-  const totalTurns = models.reduce((s, m) => s + m.turns, 0)
   const totalCost = models.reduce((s, m) => s + m.cost, 0)
-  const opus = models.find((m) => m.model.includes('opus'))
-  const sonnet = models.find((m) => m.model.includes('sonnet'))
+  const totalTurns = models.reduce((s, m) => s + m.turns, 0)
+  const top = models[0]
+  const cheapest = [...models].sort((a, b) => a.costPerTurn - b.costPerTurn)[0]
+  const ratio = cheapest.costPerTurn > 0 ? top.costPerTurn / cheapest.costPerTurn : 0
 
-  // Downgrade simulator. We don't have a per-turn output-token distribution in the
-  // Analysis contract (that's a bigger engine change), so the slider scales a candidate
-  // share of Opus turns linearly against its position — anchored at the low end by 0
-  // candidates and at the high end by "every Opus turn under this ceiling," using the
-  // real cost-per-turn differential between Opus and Sonnet from this user's own data.
-  const maxN = 4000
-  const [threshold, setThreshold] = useState(800)
-  const candidateShare = Math.min(1, threshold / maxN)
-  const candidateTurns = opus ? Math.round(opus.turns * candidateShare * 0.55) : 0
-  const candidateWorth = opus && sonnet ? candidateTurns * (opus.costPerTurn - sonnet.costPerTurn) : 0
+  // Candidate turns, not a promise of savings — we cannot prove the smaller model succeeds.
+  const candidateCost = top.cost * (pctRouted / 100)
+  const repriced = candidateCost * (cheapest.costPerTurn / (top.costPerTurn || 1))
 
   return (
-    <div className="p-8">
-      <ViewHeader
-        eyebrow="Model portfolio"
-        title="22% of your turns. 90% of your bill."
-        subtitle="Opus is the expensive line in your portfolio — not because it runs the most turns, but because every turn it runs costs 7.2x a Sonnet turn. Here's the gap, and a simulator for what's routable."
-      />
+    <Page>
+      <Masthead eyebrow="tokenomics --models --allocation" />
+      <motion.div {...rise(0.06)} className="mb-5">
+        <p className="key">{short(top.model)} SHARE OF SPEND</p>
+        <div className="display num mt-1 text-[length:var(--text-hero)] text-[var(--color-burn)]">
+          {((top.cost / totalCost) * 100).toFixed(0)}%
+        </div>
+      </motion.div>
 
-      {/* turns vs dollars gap */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <AllocationBar title="Share of turns" models={models} totalTurns={totalTurns} totalCost={totalCost} metric="turns" />
-        <AllocationBar title="Share of dollars" models={models} totalTurns={totalTurns} totalCost={totalCost} metric="cost" />
-      </div>
+      <Lede delay={0.16}>
+        {short(top.model)} is <N tone="default">{((top.turns / totalTurns) * 100).toFixed(0)}%</N> of
+        your turns but <N tone="burn">{((top.cost / totalCost) * 100).toFixed(0)}%</N> of the money —{' '}
+        <N>{ratio.toFixed(1)}×</N> the per-turn cost of {short(cheapest.model)}.
+      </Lede>
 
-      {/* $/turn table */}
-      <Panel delay={0.15} className="mb-6 overflow-x-auto">
-        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Cost per turn</div>
-        <table className="w-full min-w-[480px] text-sm">
+      <Section title="ALLOCATION" note="Turns on the left, dollars on the right. The gap is the story." delay={0.28}>
+        <div className="space-y-4">
+          {models.map((m, i) => (
+            <motion.div
+              key={m.model}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.34 + i * 0.07, duration: 0.4 }}
+            >
+              <div className="flex items-baseline justify-between text-[0.8rem]">
+                <span className="key !text-[var(--color-text)]">{short(m.model)}</span>
+                <span className="num text-[var(--color-muted)]">
+                  {m.turns.toLocaleString()} turns · {money(m.costPerTurn)}/turn
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <div>
+                  <div className="h-4 w-full bg-[var(--color-line-soft)]">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(m.turns / totalTurns) * 100}%` }}
+                      transition={{ delay: 0.4 + i * 0.07, duration: 0.7, ease: EASE }}
+                      className="h-full bg-[var(--color-line)]"
+                    />
+                  </div>
+                  <p className="key mt-1">{((m.turns / totalTurns) * 100).toFixed(0)}% of turns</p>
+                </div>
+                <div>
+                  <div className="h-4 w-full bg-[var(--color-line-soft)]">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(m.cost / totalCost) * 100}%` }}
+                      transition={{ delay: 0.44 + i * 0.07, duration: 0.7, ease: EASE }}
+                      className="h-full bg-[var(--color-accent)]"
+                    />
+                  </div>
+                  <p className="key mt-1 !text-[var(--color-accent)]">
+                    {((m.cost / totalCost) * 100).toFixed(0)}% of dollars · {money(m.cost)}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </Section>
+
+      <Section
+        title="DOWNGRADE SIMULATOR"
+        note="Hypothetical. These are candidate turns, not proven substitutions — the cheaper model is not guaranteed to have finished the job."
+        delay={0.52}
+      >
+        <div className="border border-[var(--color-line-soft)] bg-[var(--color-surface)] p-5">
+          <label className="key block" htmlFor="route">
+            ROUTE {pctRouted}% OF {short(top.model)} TURNS → {short(cheapest.model)}
+          </label>
+          <input
+            id="route"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={pctRouted}
+            onChange={(e) => setPctRouted(Number(e.target.value))}
+            className="mt-4 w-full accent-[var(--color-accent)]"
+          />
+          <div className="mt-5 grid grid-cols-3 gap-4 text-center sm:text-left">
+            <div>
+              <p className="key">CANDIDATE SPEND</p>
+              <p className="display num mt-1 text-xl text-[var(--color-text)]">{money(candidateCost)}</p>
+            </div>
+            <div>
+              <p className="key">REPRICED</p>
+              <p className="display num mt-1 text-xl text-[var(--color-cash)]">{money(repriced)}</p>
+            </div>
+            <div>
+              <p className="key">DIFFERENCE</p>
+              <p className="display num mt-1 text-xl text-[var(--color-accent)]">
+                {money(candidateCost - repriced)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="PER-TURN RATES" delay={0.62}>
+        <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-wide text-[var(--color-muted)]">
-              <th className="py-2 pr-4 font-medium">Model</th>
-              <th className="py-2 pr-4 font-medium">Turns</th>
-              <th className="py-2 pr-4 font-medium">Total cost</th>
-              <th className="py-2 pr-4 font-medium">$ / turn</th>
-              <th className="py-2 font-medium">Avg context re-read</th>
+            <tr className="border-b border-[var(--color-line)]">
+              <th className="key py-2 text-left">Model</th>
+              <th className="key py-2 text-right">Turns</th>
+              <th className="key py-2 text-right">$/turn</th>
+              <th className="key py-2 text-right">Avg ctx read</th>
+              <th className="key py-2 text-right">Total</th>
             </tr>
           </thead>
           <tbody>
-            {models
-              .slice()
-              .sort((a, b) => b.cost - a.cost)
-              .map((m) => (
-                <tr key={m.model} className="border-b border-[var(--color-line)]/50 last:border-0">
-                  <td className="py-2 pr-4">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: modelColor[m.model] ?? '#8e8271' }} />
-                      {m.model}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4 font-mono tabular-nums text-[var(--color-muted)]">{m.turns.toLocaleString()}</td>
-                  <td className="py-2 pr-4 font-mono tabular-nums text-[#f2ece0]">{money(m.cost)}</td>
-                  <td className="py-2 pr-4 font-mono tabular-nums text-[#f2ece0]">{money(m.costPerTurn)}</td>
-                  <td className="py-2 font-mono tabular-nums text-[var(--color-muted)]">
-                    {(m.avgContextRead / 1000).toFixed(0)}k tok
-                  </td>
-                </tr>
-              ))}
+            {models.map((m) => (
+              <tr key={m.model} className="border-b border-[var(--color-line-soft)] last:border-0">
+                <td className="py-2.5 text-[var(--color-text)]">{short(m.model)}</td>
+                <td className="num py-2.5 text-right text-[var(--color-muted)]">{m.turns.toLocaleString()}</td>
+                <td className="num py-2.5 text-right text-[var(--color-accent)]">{money(m.costPerTurn)}</td>
+                <td className="num py-2.5 text-right text-[var(--color-muted)]">{compactTokens(m.avgContextRead)}</td>
+                <td className="num py-2.5 text-right text-[var(--color-text)]">{money(m.cost)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
-      </Panel>
-
-      {/* downgrade simulator */}
-      <Panel delay={0.2}>
-        <div className="mb-1 text-sm font-medium text-[#f2ece0]">Downgrade simulator</div>
-        <p className="mb-4 text-xs text-[var(--color-muted)]">
-          Route Opus turns with small output and no tool call under this ceiling to Sonnet. We can't prove the
-          smaller model would have succeeded — this shows what's <em>candidate</em>, not what you'd have saved.
-        </p>
-        <div className="mb-4 flex items-center gap-4">
-          <input
-            type="range"
-            min={0}
-            max={maxN}
-            step={50}
-            value={threshold}
-            onChange={(e) => setThreshold(Number(e.target.value))}
-            className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-[var(--color-surface-2)] accent-[var(--color-accent)]"
-          />
-          <div className="w-40 shrink-0 font-mono text-sm tabular-nums text-[var(--color-muted)]">
-            output &lt; {threshold.toLocaleString()} tok
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <StatTile label="Candidate turns" value={candidateTurns.toLocaleString()} />
-          <StatTile label="Candidate turns worth" value={money(candidateWorth)} tone="warn" />
-          <StatTile
-            label="If routed to Sonnet"
-            value={`${money(candidateTurns * (sonnet?.costPerTurn ?? 0))}`}
-            sub="Sonnet-priced equivalent"
-          />
-        </div>
-      </Panel>
-    </div>
-  )
-}
-
-function AllocationBar({
-  title,
-  models,
-  totalTurns,
-  totalCost,
-  metric,
-}: {
-  title: string
-  models: Analysis['models']
-  totalTurns: number
-  totalCost: number
-  metric: 'turns' | 'cost'
-}) {
-  const total = metric === 'turns' ? totalTurns : totalCost
-  return (
-    <Panel delay={0.1}>
-      <div className="mb-3 text-sm font-medium text-[#f2ece0]">{title}</div>
-      <div className="flex h-8 w-full overflow-hidden rounded-lg border border-[var(--color-line)]">
-        {models.map((m) => {
-          const value = metric === 'turns' ? m.turns : m.cost
-          const share = total > 0 ? value / total : 0
-          return (
-            <motion.div
-              key={m.model}
-              initial={{ width: 0 }}
-              animate={{ width: `${share * 100}%` }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-              className="h-full"
-              style={{ background: modelColor[m.model] ?? '#8e8271' }}
-              title={`${m.model}: ${pct(share)}`}
-            />
-          )
-        })}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        {models.map((m) => {
-          const value = metric === 'turns' ? m.turns : m.cost
-          const share = total > 0 ? value / total : 0
-          return (
-            <span key={m.model} className="inline-flex items-center gap-1.5 text-[var(--color-muted)]">
-              <span className="h-2 w-2 rounded-full" style={{ background: modelColor[m.model] ?? '#8e8271' }} />
-              {m.model.replace('claude-', '')} <span className="font-mono tabular-nums text-[#f2ece0]">{pct(share)}</span>
-            </span>
-          )
-        })}
-      </div>
-    </Panel>
+      </Section>
+    </Page>
   )
 }
