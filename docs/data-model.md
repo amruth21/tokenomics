@@ -34,15 +34,20 @@ isSidechain, effort, entrypoint, userType`.
 
 ## Verified corpus totals (deduped, public API rates)
 
+Dedup rule: **last occurrence per `requestId`** (see trap 1). Buildathon records excluded
+by both file path and record `cwd`.
+
 | | tokens | $ |
 |---|---|---|
-| output | 1.92 M | 101 |
-| cache read | 952.61 M | 809 |
-| cache write (11.29 M @1h, 9.38 M @5m) | 20.67 M | 320 |
-| fresh input | 0.06 M | ~0 |
-| **total** | | **~1,230** |
+| output | 3.01 M | 111 |
+| cache read | 951.92 M | 809 |
+| cache write (11.42 M @1h, 9.38 M @5m) | 20.80 M | 324 |
+| fresh input | 0.059 M | ~0 |
+| **total** | | **~1,245** |
 
-- Productive token rate: **0.2% of tokens / 8.2% of dollars**. 496:1 read-to-output.
+- Productive token rate: **0.31% of tokens / 8.9% of dollars**. **317:1** read-to-output.
+- The corpus is LIVE and grows as sessions run. Pin demo numbers to a committed
+  snapshot; never re-derive them at demo time and expect a match.
 - Models: haiku 5,276 turns, opus-5 2,697, sonnet-5 1,508, `<synthetic>` 39.
   Opus is 22% of turns and **90% of dollars**.
 - `isSidechain: true` on **5,373 of 9,524 turns (56%)** — subagents are the majority.
@@ -86,7 +91,12 @@ Also directly measurable from `attachment` records:
 
 ## Traps (found the hard way)
 
-1. **`requestId` duplicates**: 11,894 of 21,418 assistant records. Dedup or double-bill.
+1. **`requestId` duplicates — and WHICH one you keep matters.** 7,880 requestIds carry
+   more than one record. They are progressive streaming saves and usage grows
+   monotonically: last > first in 4,142 cases, equal in 3,738, **smaller in zero**.
+   Keeping the FIRST occurrence undercounts output by ~42% (1.64M vs 2.82M tokens).
+   **Keep the LAST occurrence** (equivalently, the per-request max). A
+   `if (seen.has(id)) continue` pattern silently gets this wrong.
 2. **Thinking text is not persisted**: 6,943 thinking blocks, **all with empty
    `thinking` string**. Thinking tokens cannot be separated from `output_tokens`.
    Do not ship a "thinking spend" category — there is no data for it.
@@ -98,3 +108,7 @@ Also directly measurable from `attachment` records:
    prompt (39 usable), and filter injected prompts — many begin with
    `Skill /... is already loaded` or `<`.
 5. `<synthetic>` appears as a model value (39 turns). Exclude from pricing.
+6. **Self-tail exclusion needs `cwd`, not just the file path.** This project's own
+   subagent transcripts live under `~/.claude/projects/-Users-amruthnare/.../subagents/`
+   — the parent session's directory — while each record's `cwd` is the Buildathon path.
+   Filtering on file path alone leaks 5 subagent runs into the aggregate.

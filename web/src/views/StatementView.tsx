@@ -38,10 +38,8 @@ export default function StatementView({ data }: { data: Analysis }) {
           <CountUp value={summary.totalCost} formatter={money} />
         </div>
         <div className="mt-3 text-lg text-[var(--color-burn)]">
-          496 tokens read for every 1 written.
-        </div>
-        <div className="mt-1 text-sm text-[var(--color-muted)]">
-          Actual ratio measured this window: <span className="font-mono tabular-nums text-[#e8edf5]">{summary.readToWriteRatio}:1</span>.
+          <span className="font-mono tabular-nums">{Math.round(summary.readToWriteRatio)}</span>{' '}
+          tokens read for every 1 written.
         </div>
       </motion.div>
 

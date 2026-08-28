@@ -13,11 +13,11 @@ const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export const mockAnalysis: Analysis = {
   meta: { sessions: 59, turns: 9524, deduped: 11894, from: '2026-07-26', to: '2026-08-28', source: 'demo' },
   summary: {
-    totalCost: 1230.23,
-    productiveRateTokens: 0.002,
-    productiveRateDollars: 0.082,
-    readToWriteRatio: 496,
-    totalTokens: { input: 60_000, output: 1_920_000, cacheRead: 952_610_000, cacheWrite: 20_670_000 },
+    totalCost: 1244.72,
+    productiveRateTokens: 0.0031,
+    productiveRateDollars: 0.089,
+    readToWriteRatio: 317,
+    totalTokens: { input: 59_000, output: 3_010_000, cacheRead: 951_920_000, cacheWrite: 20_800_000 },
     daily: days.map((date, i) => ({
       date,
       cost: Math.round((18 + Math.sin(i / 2.4) * 14 + (i % 7 === 2 ? 46 : 0) + (i > 18 ? 22 : 0)) * 100) / 100,
