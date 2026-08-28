@@ -86,8 +86,8 @@ export function detectPromptSpecificity(facts: Facts): Recommendation[] {
       }))
     const totalOpusCost = routingCandidates.reduce((sum, s) => sum + s.prompt.followingCost, 0)
     const saving = totalOpusCost * (1 - repriceRatio)
-    const shareOfOpusTurns =
-      avgOpus > 0 ? routingCandidates.length / (modelCost.get('claude-opus-5')?.turns ?? 1 || 1) : 0
+    const opusTurnsSeen = modelCost.get('claude-opus-5')?.turns ?? 1
+    const shareOfOpusTurns = avgOpus > 0 ? routingCandidates.length / (opusTurnsSeen || 1) : 0
 
     recs.push({
       id: nextId('c1-routing'),
