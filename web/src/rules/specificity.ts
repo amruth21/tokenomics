@@ -60,14 +60,19 @@ export function detectPromptSpecificity(facts: Facts): Recommendation[] {
 
   const scored = facts.prompts.map((p) => ({ prompt: p, score: scorePrompt(p.text) }))
 
+  // Gates were swept against the real corpus: at score>=3 / tools<=3 / out<800 the
+  // card never fired at all (0 candidates of 44 Opus-following prompts). Loosened to
+  // the widest setting that still means "bounded, mechanical work": a specific prompt,
+  // a handful of tool calls, and output small enough to be a single edit rather than
+  // an exploration. Ceiling is inherently low — the corpus only yields 71 real prompts.
   const routingCandidates = scored.filter(
     (s) =>
-      s.score >= 3 &&
+      s.score >= 2 &&
       s.prompt.followingModel &&
       OPUS_MODELS.has(s.prompt.followingModel) &&
-      s.prompt.followingToolCalls <= 3 &&
+      s.prompt.followingToolCalls <= 6 &&
       s.prompt.followingOutputTokens > 0 &&
-      s.prompt.followingOutputTokens < 800,
+      s.prompt.followingOutputTokens < 5000,
   )
 
   const vagueReworkCandidates = scored.filter((s) => s.score <= -1 && s.prompt.followingTurns >= 5)
@@ -86,8 +91,12 @@ export function detectPromptSpecificity(facts: Facts): Recommendation[] {
       }))
     const totalOpusCost = routingCandidates.reduce((sum, s) => sum + s.prompt.followingCost, 0)
     const saving = totalOpusCost * (1 - repriceRatio)
-    const opusTurnsSeen = modelCost.get('claude-opus-5')?.turns ?? 1
-    const shareOfOpusTurns = avgOpus > 0 ? routingCandidates.length / (opusTurnsSeen || 1) : 0
+    // Denominator is Opus-following PROMPTS, not Opus turns — a prompt spawns many
+    // turns, so dividing by turns understates the share by an order of magnitude.
+    const opusPrompts = scored.filter(
+      (s) => s.prompt.followingModel && OPUS_MODELS.has(s.prompt.followingModel),
+    ).length
+
 
     recs.push({
       id: nextId('c1-routing'),
@@ -96,7 +105,7 @@ export function detectPromptSpecificity(facts: Facts): Recommendation[] {
       body:
         `These prompts were specific and bounded (file paths, symbols, or exact error text; single imperative verb; ` +
         `no hedging) and produced small, single-shot output on Opus. ` +
-        `${(shareOfOpusTurns * 100).toFixed(0)}% of a sample of your Opus turns fit this pattern.`,
+        `${routingCandidates.length} of ${opusPrompts} prompts that ran on Opus fit this pattern.`,
       monthlySaving: saving,
       confidence: 'heuristic',
       fix: 'Route prompts like these to Sonnet — the mechanical edit gets done at a fraction of the cost.',
