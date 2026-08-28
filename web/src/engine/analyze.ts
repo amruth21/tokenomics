@@ -1,7 +1,21 @@
-// Two-pass aggregation over the transcript corpus, producing the frozen
+// Three-pass aggregation over the transcript corpus, producing the frozen
 // `Analysis` shape. See docs/data-model.md for the traps this code guards
-// against (requestId dedup, two-pass tool_use resolution, split cache-write
-// pricing, <synthetic> exclusion, file-history-delta being useless for rework).
+// against:
+//
+//   1. requestId duplicates are progressive streaming saves and usage grows
+//      monotonically — the LAST occurrence per requestId must win (first-wins
+//      undercounts output by ~42%). We can't decide "last" until we've seen
+//      every occurrence, so dedup happens as an in-memory finalize step
+//      between two file-reading passes, not as a single streaming skip.
+//   2. tool_use id -> name/input must be resolved from ALL assistant records
+//      (incl. duplicates) before dedup, then tool_results are matched only
+//      against the ids that survive into the kept (last) turn.
+//   3. cache_creation splits ephemeral_5m (1.25x) and ephemeral_1h (2x) — never
+//      collapsed into one bucket.
+//   4. Self-referential corpus exclusion must check the record's own `cwd`,
+//      not just the file path — this project's subagent transcripts are filed
+//      under the parent session's (non-Buildathon) directory while carrying
+//      cwd: ".../Buildathon/...".
 
 import type { Analysis, ModelId, Recommendation, EngineProgress } from '../types/analysis'
 import { selectFiles, streamFile, type SelectFilesOptions } from './parse'
@@ -17,7 +31,7 @@ import { detectSubagentBoot } from '../rules/subagentBoot'
 import { detectRecurringCharges } from '../rules/recurring'
 import { detectPromptSpecificity } from '../rules/specificity'
 
-type ToolUseMeta = { name: string; sessionId: string; filePath?: string; command?: string }
+const EXCLUDE_CWD_SUBSTRING = 'Documents/Buildathon'
 
 type ContentBlock = {
   type?: string
@@ -56,8 +70,30 @@ type UserRecord = {
 type AttachmentRecord = {
   type: 'attachment'
   sessionId: string
+  cwd?: string
   timestamp: string
   attachment?: { type?: string }
+}
+
+type ToolUseMeta = { id: string; name: string; filePath?: string; command?: string }
+
+/** One assistant record's extracted essentials, keyed by requestId. Only the
+ * LAST occurrence for a given requestId is retained (see trap #1 above). */
+type KeptTurn = {
+  sessionId: string
+  cwd: string
+  relPath: string
+  timestamp: string
+  requestId: string
+  model: string
+  isSidechain: boolean
+  freshInput: number
+  output: number
+  cacheRead: number
+  write5m: number
+  write1h: number
+  cost: number
+  toolUse: ToolUseMeta[]
 }
 
 export type ProgressFn = (p: Extract<EngineProgress, { phase: 'scanning' | 'parsing' | 'analyzing' }>) => void
@@ -66,24 +102,30 @@ export interface AnalyzeOptions extends SelectFilesOptions {
   source?: Analysis['meta']['source']
 }
 
+function isExcluded(cwd: string | undefined): boolean {
+  return !!cwd && cwd.includes(EXCLUDE_CWD_SUBSTRING)
+}
+
 export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opts: AnalyzeOptions = {}): Promise<Analysis> {
-  const files = selectFiles(allFiles, opts)
+  const files = selectFiles(allFiles, opts) // file-path-level exclusion (cheap, catches most of it)
   const filesTotal = files.length || 1
 
-  // ---------- PASS 1 (scanning): tool_use.id -> {name, input} over ALL
-  // assistant records, including duplicate requestIds, before any dedup. ----------
-  const toolUseMap = new Map<string, ToolUseMeta>()
+  // ---------- PASS 1 (scanning): tool_use.id -> meta over ALL assistant
+  // records, including duplicate requestIds, before any dedup decision. ----------
+  const toolUseMap = new Map<string, ToolUseMeta & { sessionId: string }>()
   let filesDone = 0
   for (const file of files) {
     for await (const { record } of streamFile(file)) {
       if (record.type === 'assistant') {
         const rec = record as unknown as AssistantRecord
+        if (isExcluded(rec.cwd)) continue
         const content = rec.message?.content
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block?.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string') {
               const input = block.input ?? {}
               toolUseMap.set(block.id, {
+                id: block.id,
                 name: block.name,
                 sessionId: rec.sessionId,
                 filePath: typeof input.file_path === 'string' ? input.file_path : undefined,
@@ -98,223 +140,219 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
     onProgress({ phase: 'scanning', filesDone, filesTotal })
   }
 
-  // ---------- PASS 2 (parsing): dedup by requestId, resolve tool_result
-  // payloads via the map built above, and accumulate facts. ----------
-  const seenRequestIds = new Set<string>()
-  let deduped = 0
+  // ---------- PASS 2 (parsing, assistant dedup): keep the LAST occurrence
+  // per requestId. Duplicates are progressive streaming saves; usage never
+  // shrinks, so "last" == "most complete" (== per-request max). ----------
+  const kept = new Map<string, KeptTurn>()
+  let assistantSeenCount = 0
+
+  filesDone = 0
+  for (const file of files) {
+    for await (const { record, relPath } of streamFile(file)) {
+      if (record.type !== 'assistant') continue
+      const rec = record as unknown as AssistantRecord
+      if (isExcluded(rec.cwd)) continue
+
+      assistantSeenCount++
+      const model = rec.message?.model ?? 'unknown'
+      const usage = rec.message?.usage
+      const content = rec.message?.content
+      const toolUse: ToolUseMeta[] = []
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block?.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string') {
+            const input = block.input ?? {}
+            toolUse.push({
+              id: block.id,
+              name: block.name,
+              filePath: typeof input.file_path === 'string' ? input.file_path : undefined,
+              command: typeof input.command === 'string' ? input.command : undefined,
+            })
+          }
+        }
+      }
+
+      kept.set(rec.requestId, {
+        sessionId: rec.sessionId,
+        cwd: rec.cwd ?? '',
+        relPath,
+        timestamp: rec.timestamp,
+        requestId: rec.requestId,
+        model,
+        isSidechain: !!rec.isSidechain,
+        freshInput: usage?.input_tokens ?? 0,
+        output: usage?.output_tokens ?? 0,
+        cacheRead: usage?.cache_read_input_tokens ?? 0,
+        write5m: usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0,
+        write1h: usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0,
+        cost: costOfUsage(model, usage),
+        toolUse,
+      })
+    }
+    filesDone++
+    onProgress({ phase: 'parsing', filesDone, filesTotal })
+  }
+
+  const deduped = assistantSeenCount - kept.size
+
+  // ---------- Finalize turn order (in-memory, no file re-read) ----------
+  const keptTurns = [...kept.values()].sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0))
 
   const sessions = new Map<string, SessionFact>()
-  const sessionTurnSeq = new Map<string, number>() // running turn index per session
+  const sessionTurnCount = new Map<string, number>()
   const turns: TurnFact[] = []
   const toolCalls: ToolCallFact[] = []
-  const subagentBoots: SubagentBootFact[] = []
-
-  let errorTotal = 0
-  let toolResultTotal = 0
-
+  const toolCallById = new Map<string, ToolCallFact>()
+  const subagentBootByFile = new Map<string, SubagentBootFact>()
   const recurringFirstTurn = new Map<string, number[]>()
-  const sessionRecordedFirstTurn = new Set<string>()
-  let skillListingCount = 0
-  let deferredToolsCount = 0
+  const sessionFirstTurnRecorded = new Set<string>()
 
-  // model/day/calendar/hour aggregates
   const modelAgg = new Map<string, { turns: number; cost: number; cacheReadSum: number }>()
   const dailyCost = new Map<string, number>()
   const hourWeekday = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0))
   const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  // token totals for summary
-  let totalInput = 0
-  let totalOutput = 0
-  let totalCacheRead = 0
-  let totalCacheWrite = 0
-
-  // flow: token-type -> model -> $
   const flowMatrix = new Map<string, Map<string, number>>()
   const FLOW_COMPONENTS = ['Fresh Input', 'Cache Read', 'Cache Write', 'Output']
   for (const c of FLOW_COMPONENTS) flowMatrix.set(c, new Map())
 
-  // prompts for C1 (prompt specificity)
-  const prompts: PromptFact[] = []
-  const openPromptBySession = new Map<string, PromptFact | null>()
-
+  let totalInput = 0
+  let totalOutput = 0
+  let totalCacheRead = 0
+  let totalCacheWrite = 0
   let minTs: string | null = null
   let maxTs: string | null = null
 
+  for (const t of keptTurns) {
+    const turnIndex = sessionTurnCount.get(t.sessionId) ?? 0
+    sessionTurnCount.set(t.sessionId, turnIndex + 1)
+
+    let sess = sessions.get(t.sessionId)
+    if (!sess) {
+      sess = { sessionId: t.sessionId, cwd: t.cwd, turnCount: 0, cost: 0, firstTimestamp: t.timestamp, lastTimestamp: t.timestamp }
+      sessions.set(t.sessionId, sess)
+    }
+    sess.turnCount++
+    sess.cost += t.cost
+    if (t.timestamp < sess.firstTimestamp) sess.firstTimestamp = t.timestamp
+    if (t.timestamp > sess.lastTimestamp) sess.lastTimestamp = t.timestamp
+
+    if (!minTs || t.timestamp < minTs) minTs = t.timestamp
+    if (!maxTs || t.timestamp > maxTs) maxTs = t.timestamp
+
+    if (t.model !== SYNTHETIC_MODEL) {
+      totalInput += t.freshInput
+      totalOutput += t.output
+      totalCacheRead += t.cacheRead
+      totalCacheWrite += t.write5m + t.write1h
+
+      const m = modelAgg.get(t.model) ?? { turns: 0, cost: 0, cacheReadSum: 0 }
+      m.turns++
+      m.cost += t.cost
+      m.cacheReadSum += t.cacheRead
+      modelAgg.set(t.model, m)
+
+      const day = t.timestamp.slice(0, 10)
+      dailyCost.set(day, (dailyCost.get(day) ?? 0) + t.cost)
+
+      const d = new Date(t.timestamp)
+      hourWeekday[d.getUTCDay()][d.getUTCHours()] += t.cost
+
+      const rate = PRICING[t.model]
+      if (rate) {
+        addFlow(flowMatrix, 'Fresh Input', t.model, (t.freshInput / 1_000_000) * rate.input)
+        addFlow(flowMatrix, 'Cache Read', t.model, (t.cacheRead / 1_000_000) * rate.cacheRead)
+        addFlow(flowMatrix, 'Cache Write', t.model, (t.write5m / 1_000_000) * rate.cacheWrite5m + (t.write1h / 1_000_000) * rate.cacheWrite1h)
+        addFlow(flowMatrix, 'Output', t.model, (t.output / 1_000_000) * rate.output)
+      }
+    }
+
+    if (!sessionFirstTurnRecorded.has(t.sessionId) && turnIndex === 0) {
+      sessionFirstTurnRecorded.add(t.sessionId)
+      const arr = recurringFirstTurn.get(t.cwd) ?? []
+      arr.push(t.write1h + t.write5m)
+      recurringFirstTurn.set(t.cwd, arr)
+    }
+
+    if (t.isSidechain && t.relPath.includes('/subagents/') && !subagentBootByFile.has(t.relPath)) {
+      subagentBootByFile.set(t.relPath, {
+        sessionId: t.sessionId,
+        file: t.relPath,
+        tokens: t.freshInput + t.cacheRead + t.write1h + t.write5m,
+        timestamp: t.timestamp,
+      })
+    }
+
+    for (const tu of t.toolUse) {
+      const call: ToolCallFact = {
+        id: tu.id,
+        name: tu.name,
+        sessionId: t.sessionId,
+        turnIndex,
+        timestamp: t.timestamp,
+        model: t.model,
+        command: tu.command,
+        normCommand: tu.command ? normalizeCommand(tu.command) : undefined,
+        filePath: tu.filePath,
+        bytes: 0,
+        tokens: 0,
+        isError: false,
+      }
+      toolCalls.push(call)
+      toolCallById.set(tu.id, call)
+    }
+
+    turns.push({
+      requestId: t.requestId,
+      sessionId: t.sessionId,
+      turnIndex,
+      timestamp: t.timestamp,
+      model: t.model,
+      cost: t.cost,
+      isSidechain: t.isSidechain,
+      outputTokens: t.output,
+      cacheReadTokens: t.cacheRead,
+      toolCallCount: t.toolUse.length,
+    })
+  }
+
+  // ---------- PASS 3 (parsing, user + attachment records): resolve
+  // tool_result payloads against the kept tool_use ids, and collect real
+  // user prompts for C1. ----------
+  const prompts: PromptFact[] = []
+  let errorTotal = 0
+  let toolResultTotal = 0
+  let skillListingCount = 0
+  let deferredToolsCount = 0
+
   filesDone = 0
   for (const file of files) {
-    // Each subagent file boots at most once — track by relPath.
-    let bootedThisFile = false
-
-    for await (const { record, relPath } of streamFile(file)) {
+    for await (const { record } of streamFile(file)) {
       const type = (record as { type?: string }).type
 
-      if (type === 'assistant') {
-        const rec = record as unknown as AssistantRecord
-        const sessionId = rec.sessionId
-        const model = rec.message?.model ?? 'unknown'
-        const usage = rec.message?.usage
-
-        if (!minTs || rec.timestamp < minTs) minTs = rec.timestamp
-        if (!maxTs || rec.timestamp > maxTs) maxTs = rec.timestamp
-
-        // dedup by requestId — first occurrence wins
-        if (seenRequestIds.has(rec.requestId)) {
-          deduped++
-          continue
-        }
-        seenRequestIds.add(rec.requestId)
-
-        const cost = costOfUsage(model, usage)
-        const outputTokens = usage?.output_tokens ?? 0
-        const cacheReadTokens = usage?.cache_read_input_tokens ?? 0
-        const freshInput = usage?.input_tokens ?? 0
-        const write5m = usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0
-        const write1h = usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0
-
-        if (model !== SYNTHETIC_MODEL) {
-          totalInput += freshInput
-          totalOutput += outputTokens
-          totalCacheRead += cacheReadTokens
-          totalCacheWrite += write5m + write1h
-
-          const m = modelAgg.get(model) ?? { turns: 0, cost: 0, cacheReadSum: 0 }
-          m.turns++
-          m.cost += cost
-          m.cacheReadSum += cacheReadTokens
-          modelAgg.set(model, m)
-
-          const day = rec.timestamp.slice(0, 10)
-          dailyCost.set(day, (dailyCost.get(day) ?? 0) + cost)
-
-          const d = new Date(rec.timestamp)
-          hourWeekday[d.getUTCDay()][d.getUTCHours()] += cost
-
-          const rate = PRICING[model]
-          if (rate) {
-            addFlow(flowMatrix, 'Fresh Input', model, (freshInput / 1_000_000) * rate.input)
-            addFlow(flowMatrix, 'Cache Read', model, (cacheReadTokens / 1_000_000) * rate.cacheRead)
-            addFlow(
-              flowMatrix,
-              'Cache Write',
-              model,
-              (write5m / 1_000_000) * rate.cacheWrite5m + (write1h / 1_000_000) * rate.cacheWrite1h,
-            )
-            addFlow(flowMatrix, 'Output', model, (outputTokens / 1_000_000) * rate.output)
-          }
-        }
-
-        // session bookkeeping
-        let sess = sessions.get(sessionId)
-        if (!sess) {
-          sess = { sessionId, cwd: rec.cwd ?? '', turnCount: 0, cost: 0, firstTimestamp: rec.timestamp, lastTimestamp: rec.timestamp }
-          sessions.set(sessionId, sess)
-        }
-        sess.turnCount++
-        sess.cost += cost
-        if (rec.timestamp < sess.firstTimestamp) sess.firstTimestamp = rec.timestamp
-        if (rec.timestamp > sess.lastTimestamp) sess.lastTimestamp = rec.timestamp
-
-        const turnIndex = sessionTurnSeq.get(sessionId) ?? 0
-        sessionTurnSeq.set(sessionId, turnIndex + 1)
-
-        // first-turn cache_creation floor, per (cwd) -- one sample per session
-        if (!sessionRecordedFirstTurn.has(sessionId) && turnIndex === 0 && rec.cwd) {
-          sessionRecordedFirstTurn.add(sessionId)
-          const arr = recurringFirstTurn.get(rec.cwd) ?? []
-          arr.push((usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0) + (usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0))
-          recurringFirstTurn.set(rec.cwd, arr)
-        }
-
-        // subagent boot: first (unique, post-dedup) assistant record of a
-        // sidechain file is the boot record.
-        if (rec.isSidechain && relPath.includes('/subagents/') && !bootedThisFile) {
-          bootedThisFile = true
-          subagentBoots.push({
-            sessionId,
-            file: relPath,
-            tokens: freshInput + cacheReadTokens + (usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0) + (usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0),
-            timestamp: rec.timestamp,
-          })
-        }
-
-        // tool_use blocks -> ToolCallFact rows (name/session/turnIndex only;
-        // payload size/error resolved when we hit the matching tool_result).
-        const content = rec.message?.content
-        let toolCallCount = 0
-        if (Array.isArray(content)) {
-          for (const block of content) {
-            if (block?.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string') {
-              toolCallCount++
-              const input = block.input ?? {}
-              const command = typeof input.command === 'string' ? input.command : undefined
-              toolCalls.push({
-                id: block.id,
-                name: block.name,
-                sessionId,
-                turnIndex,
-                timestamp: rec.timestamp,
-                model,
-                command,
-                normCommand: command ? normalizeCommand(command) : undefined,
-                filePath: typeof input.file_path === 'string' ? input.file_path : undefined,
-                bytes: 0,
-                tokens: 0,
-                isError: false,
-              })
-            }
-          }
-        }
-
-        turns.push({
-          requestId: rec.requestId,
-          sessionId,
-          turnIndex,
-          timestamp: rec.timestamp,
-          model,
-          cost,
-          isSidechain: !!rec.isSidechain,
-          outputTokens,
-          cacheReadTokens,
-          toolCallCount,
-        })
-
-        // close out any open prompt tracking for this session with this turn's stats
-        const open = openPromptBySession.get(sessionId)
-        if (open) {
-          open.followingCost += cost
-          open.followingTurns += 1
-          open.followingToolCalls += toolCallCount
-          open.followingOutputTokens += outputTokens
-          if (!open.followingModel) open.followingModel = model
-        }
-      } else if (type === 'user') {
+      if (type === 'user') {
         const rec = record as unknown as UserRecord
+        if (isExcluded(rec.cwd)) continue
         const content = rec.message?.content
 
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block?.type === 'tool_result' && typeof block.tool_use_id === 'string') {
-              const meta = toolUseMap.get(block.tool_use_id)
-              const call = findToolCallById(toolCalls, block.tool_use_id)
+              const call = toolCallById.get(block.tool_use_id)
+              if (!call) continue // superseded by a duplicate that lost to last-wins, or belongs to an excluded record
               const bytes = estimateBytes(block.content)
               toolResultTotal++
-              const isError = !!block.is_error
-              if (isError) errorTotal++
-              if (call) {
-                call.bytes = bytes
-                call.tokens = Math.round(bytes / 4)
-                call.isError = isError
-                if (isError) call.errorClass = classifyError(block.content)
-                if (!call.name && meta) call.name = meta.name
-              }
+              const isErr = !!block.is_error
+              if (isErr) errorTotal++
+              call.bytes = bytes
+              call.tokens = Math.round(bytes / 4)
+              call.isError = isErr
+              if (isErr) call.errorClass = classifyError(block.content)
             }
           }
         } else if (typeof content === 'string' && !rec.isMeta && !rec.isSidechain) {
-          // Real (non-tool-result) user turn -> candidate prompt for C1.
           const text = content
           if (isRealPrompt(text)) {
-            const prompt: PromptFact = {
+            prompts.push({
               sessionId: rec.sessionId,
               text,
               timestamp: rec.timestamp,
@@ -323,26 +361,49 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
               followingToolCalls: 0,
               followingOutputTokens: 0,
               followingModel: null,
-            }
-            prompts.push(prompt)
-            openPromptBySession.set(rec.sessionId, prompt)
-          } else {
-            openPromptBySession.set(rec.sessionId, null)
+            })
           }
         }
       } else if (type === 'attachment') {
         const rec = record as unknown as AttachmentRecord
+        if (isExcluded(rec.cwd)) continue
         const t = rec.attachment?.type
         if (t === 'skill_listing') skillListingCount++
         else if (t === 'deferred_tools_delta') deferredToolsCount++
       }
     }
-
     filesDone++
     onProgress({ phase: 'parsing', filesDone, filesTotal })
   }
 
   onProgress({ phase: 'analyzing', filesDone: filesTotal, filesTotal })
+
+  // ---------- Attribute turns to prompts (C1): per session, walk turns in
+  // order and accumulate into the most recent prompt at or before it. ----------
+  const promptsBySession = new Map<string, PromptFact[]>()
+  for (const p of prompts) {
+    const arr = promptsBySession.get(p.sessionId) ?? []
+    arr.push(p)
+    promptsBySession.set(p.sessionId, arr)
+  }
+  for (const arr of promptsBySession.values()) arr.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
+
+  const promptCursor = new Map<string, number>()
+  for (const t of keptTurns) {
+    const arr = promptsBySession.get(t.sessionId)
+    if (!arr || arr.length === 0) continue
+    let idx = promptCursor.get(t.sessionId) ?? 0
+    while (idx + 1 < arr.length && arr[idx + 1].timestamp <= t.timestamp) idx++
+    promptCursor.set(t.sessionId, idx)
+    const prompt = arr[idx]
+    if (prompt.timestamp <= t.timestamp) {
+      prompt.followingCost += t.cost
+      prompt.followingTurns += 1
+      prompt.followingToolCalls += t.toolUse.length
+      prompt.followingOutputTokens += t.output
+      if (!prompt.followingModel) prompt.followingModel = t.model
+    }
+  }
 
   // ---------- Build the Facts object rules/* consume ----------
   const facts: Facts = {
@@ -350,7 +411,7 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
     turns,
     sessions,
     prompts,
-    subagentBoots,
+    subagentBoots: [...subagentBootByFile.values()],
     errorTotal,
     toolResultTotal,
     recurringFirstTurn,
@@ -372,9 +433,8 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
 
   // ---------- Assemble Analysis ----------
   const totalCost = [...modelAgg.values()].reduce((s, m) => s + m.cost, 0)
-  const productiveOutputTokens = totalOutput
   const allTokens = totalInput + totalOutput + totalCacheRead + totalCacheWrite
-  const productiveRateTokens = allTokens > 0 ? productiveOutputTokens / allTokens : 0
+  const productiveRateTokens = allTokens > 0 ? totalOutput / allTokens : 0
   const outputDollars = sumFlowForComponent(flowMatrix, 'Output')
   const productiveRateDollars = totalCost > 0 ? outputDollars / totalCost : 0
   const readToWriteRatio = totalOutput > 0 ? totalCacheRead / totalOutput : 0
@@ -405,7 +465,7 @@ export async function analyzeFiles(allFiles: File[], onProgress: ProgressFn, opt
       calls: t.calls,
       bytes: t.bytes,
       avgTokens: t.calls > 0 ? t.tokens / t.calls : 0,
-      annuityCost: annuityCostForTool(name, toolCalls, sessions, sessionTurnSeq),
+      annuityCost: annuityCostForTool(name, toolCalls, sessionTurnCount),
     }))
     .sort((a, b) => b.bytes - a.bytes)
 
@@ -481,20 +541,9 @@ function sumFlowForComponent(matrix: Map<string, Map<string, number>>, component
   return s
 }
 
-function findToolCallById(calls: ToolCallFact[], id: string): ToolCallFact | undefined {
-  // Linear scan is fine here for correctness-first; called once per tool_result.
-  // (Corpus scale: ~10k tool results — acceptable in a worker.)
-  for (let i = calls.length - 1; i >= 0; i--) {
-    if (calls[i].id === id) return calls[i]
-  }
-  return undefined
-}
-
 export function normalizeCommand(cmd: string): string {
   let c = cmd.trim()
-  // strip leading VAR=val env-prefixes
   c = c.replace(/^(?:[A-Z_][A-Z0-9_]*=\S+\s+)+/, '')
-  // collapse whitespace
   c = c.replace(/\s+/g, ' ')
   return c
 }
@@ -529,16 +578,11 @@ function classifyError(content: unknown): string {
   return 'other'
 }
 
-function annuityCostForTool(
-  name: string,
-  toolCalls: ToolCallFact[],
-  _sessions: Map<string, SessionFact>,
-  sessionTurnSeq: Map<string, number>,
-): number {
+function annuityCostForTool(name: string, toolCalls: ToolCallFact[], sessionTurnCounts: Map<string, number>): number {
   let total = 0
   for (const call of toolCalls) {
     if (call.name !== name || call.tokens <= 0) continue
-    const sessionTurns = sessionTurnSeq.get(call.sessionId) ?? 0
+    const sessionTurns = sessionTurnCounts.get(call.sessionId) ?? 0
     const remaining = Math.max(0, sessionTurns - call.turnIndex - 1)
     const rate = PRICING[call.model]?.cacheRead ?? 0.3
     total += (call.tokens / 1_000_000) * rate * remaining
@@ -551,8 +595,7 @@ function buildRecurring(facts: Facts): Analysis['recurring'] {
   for (const [cwd, samples] of facts.recurringFirstTurn) {
     if (samples.length === 0) continue
     const avg = samples.reduce((a, b) => a + b, 0) / samples.length
-    // representative rate: blended cacheWrite1h (most first-turn cache creation is a fresh 1h write)
-    const dollarsPerSession = (avg / 1_000_000) * 30 // $/Mtok for 1h write, opus-class; conservative blended default
+    const dollarsPerSession = (avg / 1_000_000) * 30
     out.push({
       label: `${shortCwd(cwd)} session boot`,
       tokensPerSession: avg,

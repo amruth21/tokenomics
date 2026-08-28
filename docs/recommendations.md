@@ -29,12 +29,20 @@ drawer listing the exact turns it was computed from.
 
 ## A. Turn-count reducers (biggest lever)
 
-### A1. Tool loops that should be scripts — `high`
-Same normalized command run 3+ times in one session. **26 cases found**, worst is
-`curl -fsS http://localhost:8000/api/profile` run **17 times** in a single session.
+### A1. Tool loops that should be scripts — `high` signal, `low` dollar value
+Same normalized command run 3+ times in one session. **4 real cases** — worst is
+`curl -fsS http://localhost:8000/api/credentials` at **11x**, then `echo waiting` 10x
+and `curl .../api/resumes` 6x.
 
-Fix: "This command ran 17 times. Wrap it in a script that runs it and prints only the
-delta, then call the script once. Est. saving: 16 turns x $0.41 = $6.56."
+CORRECTION: earlier drafts claimed "26 cases, worst 17x". That was a measurement
+artifact — the probe truncated commands to their first 100 characters, so distinct
+heredocs sharing a prefix collapsed into one group. Full-command normalization gives 4.
+
+Honest dollar value: **~$0.30/month.** These loops happen in cheap, Haiku-heavy
+sessions, so pricing the avoided turns at the session's real cost-per-turn (~$0.012)
+rather than the Opus rate ($0.41) makes this card nearly worthless in dollars.
+Keep it for the narrative — it is the most *legible* waste on screen — but do not lead
+the demo with its saving figure. Lead with B1.
 
 Detector: `tool_calls.name = 'Bash'`, normalize `input.command` (strip whitespace, env
 prefixes, trailing args), group by session, flag count >= 3.
@@ -71,9 +79,12 @@ Fix: screenshot to a file path and let the model read it only if needed; prefer
 `browser_snapshot` (5.8 KB) over full screenshots for assertions.
 
 ### B2. Subagent context scoping — `high`
-**167 subagent boots, median 16,733 startup tokens, p90 17,650, max 23,923.**
+**168 subagent boots, median 16,743 startup tokens, p90 17,631.**
 The tight spread is the finding: every subagent is handed the *same* boilerplate context
-regardless of its job. 2.8M tokens spent just booting subagents.
+regardless of its job. ~2.8M tokens spent just booting subagents.
+
+Dollar value is small (**~$0.38/month**) because those boots are Haiku-priced. Present
+this as a context-discipline observation, not a savings card.
 
 Fix: "Your subagents all start with ~17k tokens of context. A subagent that renames a
 symbol needs the spec and 2 files, not the repo. Scope each agent's context to its job."
@@ -141,8 +152,13 @@ out mechanical is a direct overspend.
 Calendar + hour x weekday heatmap. 24 days, all 7 weekdays, 16 of 24 hours.
 
 ### D2. Delegation ROI — `medium`
-56% of turns are subagents. Compare cost-per-delegated-task against doing it inline.
-Delegation is often correct — the card should be able to say "this is working."
+**56% of turns are subagents but only ~4.7% of dollars ($58.79 of $1,245).** The reason
+is that subagent turns are overwhelmingly Haiku at $0.008/turn.
+
+This inverts the expected story and is *better* than the one we planned: delegation is
+already working. The honest card reads "you route the volume to the cheap model —
+this is the one habit you should not change." An advisor that only ever scolds is not
+credible; this is the card that proves the tool is measuring, not moralizing.
 
 ---
 
