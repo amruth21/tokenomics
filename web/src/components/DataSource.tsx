@@ -46,6 +46,18 @@ async function loadEngine(): Promise<EngineModule | null> {
   }
 }
 
+// A finished Analysis has these blocks. The scanner's snapshot format does not.
+function isAnalysis(d: unknown): d is Analysis {
+  if (!d || typeof d !== 'object') return false
+  const o = d as Record<string, unknown>
+  return (
+    !!o.meta && typeof o.meta === 'object' &&
+    !!o.summary && typeof o.summary === 'object' &&
+    typeof (o.summary as Record<string, unknown>).totalCost === 'number' &&
+    Array.isArray(o.advice)
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Types & context
 // ---------------------------------------------------------------------------
@@ -94,9 +106,13 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     fetch('/demo.json')
       .then((res) => {
         if (!res.ok) throw new Error(`demo.json ${res.status}`)
-        return res.json() as Promise<Analysis>
+        return res.json() as Promise<unknown>
       })
       .then((data) => {
+        // demo.json may be the raw scanner SNAPSHOT (schema/dict/turns), which is
+        // NOT an Analysis. Only accept a fully-formed Analysis; anything else
+        // falls through to the verified mock rather than blanking the app.
+        if (!isAnalysis(data)) throw new Error('demo.json is a raw snapshot, not an Analysis')
         setAnalysis({ ...data, meta: { ...data.meta, source: 'demo' } })
         setStatus('ready')
       })
@@ -137,9 +153,9 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     setError(null)
     file
       .text()
-      .then((text) => JSON.parse(text) as Analysis)
+      .then((text) => JSON.parse(text) as unknown)
       .then((data) => {
-        if (!data?.meta || !data?.summary) throw new Error('Not a valid snapshot')
+        if (!isAnalysis(data)) throw new Error('Not a finished Analysis snapshot')
         setAnalysis({ ...data, meta: { ...data.meta, source: 'import' } })
         setStatus('ready')
       })
