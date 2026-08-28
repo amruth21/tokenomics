@@ -29,7 +29,7 @@ export default function ReworkView({ data }: { data: Analysis }) {
       </div>
 
       <Panel delay={0.15}>
-        <div className="mb-4 text-sm font-medium text-[#e8edf5]">Files paid for more than once</div>
+        <div className="mb-4 text-sm font-medium text-[#f2ece0]">Files paid for more than once</div>
         <div className="space-y-3">
           {rework.cases
             .slice()
@@ -44,7 +44,7 @@ export default function ReworkView({ data }: { data: Analysis }) {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono text-sm text-[#e8edf5]">{c.path}</div>
+                    <div className="truncate font-mono text-sm text-[#f2ece0]">{c.path}</div>
                     <div className="mt-0.5 text-xs text-[var(--color-muted)]">session {c.sessionId}</div>
                   </div>
                   <div className="shrink-0 text-right">

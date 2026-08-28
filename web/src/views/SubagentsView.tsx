@@ -34,18 +34,18 @@ export default function SubagentsView({ data }: { data: Analysis }) {
 
       {/* boot token spread visual */}
       <Panel delay={0.15} className="mb-6">
-        <div className="mb-4 text-sm font-medium text-[#e8edf5]">Boot tokens per subagent run</div>
+        <div className="mb-4 text-sm font-medium text-[#f2ece0]">Boot tokens per subagent run</div>
         <BootSpread median={subagents.medianBootTokens} p90={subagents.p90BootTokens} />
         <p className="mt-4 text-xs text-[var(--color-muted)]">
-          Median boot is <span className="font-mono tabular-nums text-[#e8edf5]">{subagents.medianBootTokens.toLocaleString()}</span> tokens.
-          p90 is only <span className="font-mono tabular-nums text-[#e8edf5]">{subagents.p90BootTokens.toLocaleString()}</span> —
+          Median boot is <span className="font-mono tabular-nums text-[#f2ece0]">{subagents.medianBootTokens.toLocaleString()}</span> tokens.
+          p90 is only <span className="font-mono tabular-nums text-[#f2ece0]">{subagents.p90BootTokens.toLocaleString()}</span> —
           a symbol-rename agent and an architecture agent are handed nearly identical context. That's boilerplate, not a job spec.
         </p>
       </Panel>
 
       {/* by parent session */}
       <Panel delay={0.2}>
-        <div className="mb-4 text-sm font-medium text-[#e8edf5]">Delegation, by parent session</div>
+        <div className="mb-4 text-sm font-medium text-[#f2ece0]">Delegation, by parent session</div>
         <div className="space-y-3">
           {subagents.byParent
             .slice()
@@ -68,7 +68,7 @@ export default function SubagentsView({ data }: { data: Analysis }) {
                   />
                 </div>
                 <div className="w-16 shrink-0 text-right font-mono text-xs tabular-nums text-[var(--color-muted)]">{p.runs} runs</div>
-                <div className="w-20 shrink-0 text-right font-mono text-sm font-medium tabular-nums text-[#e8edf5]">
+                <div className="w-20 shrink-0 text-right font-mono text-sm font-medium tabular-nums text-[#f2ece0]">
                   {money(p.cost)}
                 </div>
               </motion.div>

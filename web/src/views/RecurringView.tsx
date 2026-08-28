@@ -48,14 +48,14 @@ export default function RecurringView({ data }: { data: Analysis }) {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <Badge>{kindLabel[r.kind] ?? r.kind}</Badge>
-                  <div className="truncate text-sm font-medium text-[#e8edf5]">{r.label}</div>
+                  <div className="truncate text-sm font-medium text-[#f2ece0]">{r.label}</div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--color-muted)]">
                   <span>
-                    <span className="font-mono tabular-nums text-[#e8edf5]">{compactTokens(r.tokensPerSession)}</span> tok / session
+                    <span className="font-mono tabular-nums text-[#f2ece0]">{compactTokens(r.tokensPerSession)}</span> tok / session
                   </span>
                   <span>
-                    billed <span className="font-mono tabular-nums text-[#e8edf5]">{r.sessions}</span> sessions
+                    billed <span className="font-mono tabular-nums text-[#f2ece0]">{r.sessions}</span> sessions
                   </span>
                 </div>
               </div>

@@ -28,7 +28,7 @@ export default function HabitsView({ data }: { data: Analysis }) {
       />
 
       <Panel className="mb-6" delay={0.1}>
-        <div className="mb-3 text-sm font-medium text-[#e8edf5]">Daily spend</div>
+        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Daily spend</div>
         <div className="h-40">
           {from && to && (
             <ResponsiveCalendar
@@ -36,17 +36,17 @@ export default function HabitsView({ data }: { data: Analysis }) {
               from={from}
               to={to}
               theme={nivoDarkTheme}
-              emptyColor="#161b23"
-              colors={['#0f2818', '#16401f', '#1f6b2c', '#2fa83e', '#4ade80']}
+              emptyColor="#262019"
+              colors={['#0f2818', '#16401f', '#1f6b2c', '#2fa83e', '#869c5a']}
               margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
               yearSpacing={40}
-              monthBorderColor="#0e1218"
+              monthBorderColor="#1d1810"
               dayBorderWidth={2}
-              dayBorderColor="#0e1218"
+              dayBorderColor="#1d1810"
               tooltip={({ day, value }) => (
                 <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
                   <div className="text-[var(--color-muted)]">{day}</div>
-                  <div className="font-mono font-semibold text-[#e8edf5]">{money(Number(value))}</div>
+                  <div className="font-mono font-semibold text-[#f2ece0]">{money(Number(value))}</div>
                 </div>
               )}
             />
@@ -54,7 +54,7 @@ export default function HabitsView({ data }: { data: Analysis }) {
         </div>
         <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-[var(--color-muted)]">
           <span>less</span>
-          {['#161b23', '#0f2818', '#16401f', '#1f6b2c', '#2fa83e', '#4ade80'].map((c) => (
+          {['#262019', '#0f2818', '#16401f', '#1f6b2c', '#2fa83e', '#869c5a'].map((c) => (
             <span key={c} className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />
           ))}
           <span>more</span>
@@ -62,7 +62,7 @@ export default function HabitsView({ data }: { data: Analysis }) {
       </Panel>
 
       <Panel delay={0.2}>
-        <div className="mb-3 text-sm font-medium text-[#e8edf5]">Hour of day × weekday</div>
+        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Hour of day × weekday</div>
         <div className="overflow-x-auto">
           <div className="grid min-w-[720px] grid-cols-[3rem_repeat(24,1fr)] gap-[3px]">
             <div />
@@ -84,7 +84,7 @@ export default function HabitsView({ data }: { data: Analysis }) {
                       title={`${wd} ${h}:00 — $${v}`}
                       className="aspect-square rounded-[3px]"
                       style={{
-                        background: intensity === 0 ? '#161b23' : `rgba(74, 222, 128, ${0.12 + intensity * 0.85})`,
+                        background: intensity === 0 ? '#262019' : `rgba(74, 222, 128, ${0.12 + intensity * 0.85})`,
                       }}
                     />
                   )

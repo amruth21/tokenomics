@@ -316,7 +316,7 @@ export default function DataSourceControl() {
         >
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[var(--color-accent)] px-12 py-10">
             <UploadCloud size={28} className="text-[var(--color-accent)]" />
-            <p className="text-sm text-[#e8edf5]">Drop a snapshot JSON to import</p>
+            <p className="text-sm text-[#f2ece0]">Drop a snapshot JSON to import</p>
           </div>
         </motion.div>
       )}
@@ -343,7 +343,7 @@ function SourceButton({
         'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
         active
           ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]'
-          : 'text-[var(--color-muted)] hover:text-[#e8edf5]',
+          : 'text-[var(--color-muted)] hover:text-[#f2ece0]',
       )}
     >
       <Icon size={13} strokeWidth={1.75} />

@@ -32,7 +32,7 @@ export default function ToolsView({ data }: { data: Analysis }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-sm text-[var(--color-muted)]">The headline offender</div>
-              <div className="mt-1 text-lg text-[#e8edf5]">
+              <div className="mt-1 text-lg text-[#f2ece0]">
                 One <span className="font-mono">browser_take_screenshot</span> = 153 KB ≈{' '}
                 <span className="font-mono tabular-nums text-[var(--color-burn)]">38k tokens</span> — re-read on every
                 later turn in that session.
@@ -59,7 +59,7 @@ export default function ToolsView({ data }: { data: Analysis }) {
       </div>
 
       <Panel className="h-[420px]" delay={0.2}>
-        <div className="mb-3 text-sm font-medium text-[#e8edf5]">Tool payload bytes, sized by re-read annuity cost</div>
+        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Tool payload bytes, sized by re-read annuity cost</div>
         <div className="h-[360px]">
           <ResponsiveTreeMap
             data={treeData}
@@ -72,7 +72,7 @@ export default function ToolsView({ data }: { data: Analysis }) {
             label={(n) => n.id}
             labelTextColor="#0a0d12"
             parentLabelPosition="top"
-            borderColor="#0e1218"
+            borderColor="#1d1810"
             borderWidth={2}
             colors={moneyPalette}
             colorBy="id"
@@ -81,7 +81,7 @@ export default function ToolsView({ data }: { data: Analysis }) {
             motionConfig="gentle"
             tooltip={({ node }) => (
               <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
-                <div className="font-medium text-[#e8edf5]">{node.id}</div>
+                <div className="font-medium text-[#f2ece0]">{node.id}</div>
                 <div className="text-[var(--color-muted)]">{(node.value / 1000).toFixed(0)} KB payload</div>
                 <div className="font-mono tabular-nums text-[var(--color-burn)]">
                   {money((node.data as unknown as { annuityCost: number }).annuityCost)} annuity

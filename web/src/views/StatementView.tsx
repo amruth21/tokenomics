@@ -2,120 +2,165 @@ import type { Analysis } from '../types/analysis'
 import { ResponsiveLine } from '@nivo/line'
 import { motion } from 'framer-motion'
 import { nivoDarkTheme } from '../charts/theme'
-import { CountUp, EmptyState, Panel, StatTile, ViewHeader, ViewSkeleton, money } from './_shared'
+import { CountUp, EmptyState, ViewSkeleton, money } from './_shared'
+
+const EASE = [0.22, 1, 0.36, 1] as const
+
+/** One orchestrated entrance, staggered top to bottom. */
+const rise = (delay: number) => ({
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+  transition: { delay, duration: 0.7, ease: EASE },
+})
+
+function shortDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10)
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+}
 
 export default function StatementView({ data }: { data: Analysis }) {
   if (!data) return <ViewSkeleton />
   const { summary, meta } = data
   if (!summary || summary.daily.length === 0) {
-    return <EmptyState title="No statement yet" body="Load a folder of Claude Code sessions to generate your first statement." />
+    return (
+      <EmptyState
+        title="No statement yet"
+        body="Point Tokenomics at ~/.claude/projects and it will read your sessions here on your machine. Nothing is uploaded."
+      />
+    )
   }
 
-  const lineData = [
-    {
-      id: 'daily spend',
-      data: summary.daily.map((d) => ({ x: d.date, y: d.cost })),
-    },
+  const t = summary.totalTokens
+  const totalTokens = t.cacheRead + t.cacheWrite + t.output + t.input
+  const seg = [
+    { label: 'Context re-read', value: t.cacheRead, color: 'var(--color-burn)' },
+    { label: 'Context written', value: t.cacheWrite, color: 'var(--color-accent-dim)' },
+    { label: 'Actual output', value: t.output + t.input, color: 'var(--color-cash)' },
   ]
 
-  return (
-    <div className="p-8">
-      <ViewHeader
-        eyebrow={`Statement · ${meta.from} → ${meta.to}`}
-        title="Here's where your month went."
-        subtitle={`${meta.sessions.toLocaleString()} sessions, ${meta.turns.toLocaleString()} turns, deduped from ${meta.deduped.toLocaleString()} raw records.`}
-      />
+  const lineData = [{ id: 'daily', data: summary.daily.map((d) => ({ x: d.date, y: d.cost })) }]
+  const peak = summary.daily.reduce((a, b) => (b.cost > a.cost ? b : a), summary.daily[0])
 
-      {/* The wince line */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15, duration: 0.5 }}
-        className="mb-8 rounded-2xl border border-[var(--color-burn)]/30 bg-gradient-to-br from-[#1a0f13] to-[var(--color-surface)] p-6"
-      >
-        <div className="text-sm text-[var(--color-muted)]">You spent</div>
-        <div className="mt-1 font-mono text-5xl font-bold tabular-nums text-[#e8edf5] sm:text-6xl">
+  return (
+    <div className="mx-auto max-w-5xl px-2 pb-20 pt-4">
+      {/* Masthead ------------------------------------------------------- */}
+      <motion.header {...rise(0)} className="mb-14">
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-[var(--color-muted)]">
+          Statement · {shortDate(meta.from)} — {shortDate(meta.to)}
+        </p>
+        <div className="rule-accent mt-3 w-28" />
+      </motion.header>
+
+      {/* The figure ------------------------------------------------------ */}
+      <motion.div {...rise(0.08)} className="mb-3">
+        <p className="text-lg text-[var(--color-text-dim)]">You spent</p>
+        <h1 className="display num mt-2 text-[length:var(--text-hero)] text-[var(--color-text)]">
           <CountUp value={summary.totalCost} formatter={money} />
-        </div>
-        <div className="mt-3 text-lg text-[var(--color-burn)]">
-          <span className="font-mono tabular-nums">{Math.round(summary.readToWriteRatio)}</span>{' '}
-          tokens read for every 1 written.
-        </div>
+        </h1>
       </motion.div>
 
-      {/* Productive rate hero */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Panel delay={0.2} className="border-[var(--color-cash)]/25">
-          <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Productive tokens
-          </div>
-          <div className="mt-2 font-mono text-4xl font-bold tabular-nums text-[var(--color-cash)]">
-            <CountUp value={summary.productiveRateTokens * 100} formatter={(n) => `${n.toFixed(1)}%`} />
-          </div>
-          <div className="mt-2 text-sm text-[var(--color-muted)]">
-            of every token moved this window was net-new work output. The rest was re-reading
-            context you already paid for.
-          </div>
-        </Panel>
-        <Panel delay={0.25} className="border-[var(--color-warn)]/25">
-          <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Productive dollars
-          </div>
-          <div className="mt-2 font-mono text-4xl font-bold tabular-nums text-[var(--color-warn)]">
-            <CountUp value={summary.productiveRateDollars * 100} formatter={(n) => `${n.toFixed(1)}%`} />
-          </div>
-          <div className="mt-2 text-sm text-[var(--color-muted)]">
-            Dollars skew more productive than tokens because output tokens are priced
-            far higher than cache reads — but 92 cents of every dollar still went to context.
-          </div>
-        </Panel>
-      </div>
+      {/* The argument ---------------------------------------------------- */}
+      <motion.p
+        {...rise(0.2)}
+        className="max-w-3xl text-[length:var(--text-lede)] leading-snug text-[var(--color-text-dim)]"
+      >
+        and{' '}
+        <span className="display num text-[var(--color-burn)]">
+          {Math.round(summary.readToWriteRatio)}
+        </span>{' '}
+        tokens were re-read for every <span className="text-[var(--color-text)]">1</span> you
+        actually got back. Only{' '}
+        <span className="display num text-[var(--color-cash)]">
+          {(summary.productiveRateDollars * 100).toFixed(1)}%
+        </span>{' '}
+        of that money bought new work.
+      </motion.p>
 
-      {/* Stat row */}
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile label="Sessions" value={meta.sessions.toLocaleString()} />
-        <StatTile label="Turns" value={meta.turns.toLocaleString()} />
-        <StatTile
-          label="Tokens read"
-          value={`${(summary.totalTokens.cacheRead / 1_000_000).toFixed(0)}M`}
-          sub="cache reads, this window"
-        />
-        <StatTile
-          label="Tokens written"
-          value={`${(summary.totalTokens.output / 1000).toFixed(0)}k`}
-          sub="net-new output"
-          tone="cash"
-        />
-      </div>
-
-      {/* Daily spend chart */}
-      <Panel delay={0.3} className="h-80">
-        <div className="mb-3 flex items-baseline justify-between">
-          <div className="text-sm font-medium text-[#e8edf5]">Daily spend</div>
-          <div className="text-xs text-[var(--color-muted)]">{meta.from} – {meta.to}</div>
+      {/* Proportion bar — one chart, load-bearing, not decoration -------- */}
+      <motion.section {...rise(0.34)} className="mt-12">
+        <div className="flex h-14 w-full overflow-hidden rounded-sm">
+          {seg.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ width: 0 }}
+              animate={{ width: `${(s.value / totalTokens) * 100}%` }}
+              transition={{ delay: 0.45 + i * 0.09, duration: 0.9, ease: EASE }}
+              style={{ background: s.color }}
+              title={`${s.label}: ${(s.value / 1e6).toFixed(1)}M tokens`}
+            />
+          ))}
         </div>
-        <div className="h-64">
+        <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
+          {seg.map((s) => (
+            <div key={s.label} className="flex items-baseline gap-2.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+              <dt className="text-sm text-[var(--color-muted)]">{s.label}</dt>
+              <dd className="num text-sm font-semibold text-[var(--color-text)]">
+                {(s.value / 1e6).toFixed(1)}M
+                <span className="ml-1.5 font-normal text-[var(--color-muted)]">
+                  {((s.value / totalTokens) * 100).toFixed(1)}%
+                </span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </motion.section>
+
+      {/* Ledger facts — a definition list, not four identical cards ------ */}
+      <motion.section
+        {...rise(0.5)}
+        className="mt-14 grid grid-cols-2 gap-x-10 gap-y-8 border-t border-[var(--color-line-soft)] pt-8 sm:grid-cols-4"
+      >
+        {[
+          { k: 'Sessions', v: meta.sessions.toLocaleString() },
+          { k: 'Turns', v: meta.turns.toLocaleString() },
+          { k: 'Duplicates skipped', v: meta.deduped.toLocaleString() },
+          { k: 'Busiest day', v: money(peak.cost), sub: shortDate(peak.date) },
+        ].map((f) => (
+          <div key={f.k}>
+            <dt className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--color-muted)]">
+              {f.k}
+            </dt>
+            <dd className="display num mt-1.5 text-[length:var(--text-figure)] text-[var(--color-text)]">
+              {f.v}
+            </dd>
+            {f.sub && <p className="mt-0.5 text-xs text-[var(--color-muted)]">{f.sub}</p>}
+          </div>
+        ))}
+      </motion.section>
+
+      {/* Daily spend ----------------------------------------------------- */}
+      <motion.section {...rise(0.62)} className="mt-16">
+        <h2 className="display text-2xl text-[var(--color-text)]">Day by day</h2>
+        <p className="mt-1.5 max-w-2xl text-sm text-[var(--color-muted)]">
+          Spend is spiky, not steady — the peak day cost {money(peak.cost)}, roughly{' '}
+          {(peak.cost / (summary.totalCost / summary.daily.length)).toFixed(1)}× an average day.
+        </p>
+        <div className="mt-6 h-64">
           <ResponsiveLine
             data={lineData}
             theme={nivoDarkTheme}
-            margin={{ top: 10, right: 20, bottom: 40, left: 50 }}
+            margin={{ top: 10, right: 8, bottom: 34, left: 44 }}
             xScale={{ type: 'point' }}
             yScale={{ type: 'linear', min: 0, max: 'auto' }}
             curve="monotoneX"
-            axisBottom={{ tickRotation: -35, tickValues: Math.min(8, summary.daily.length) }}
-            axisLeft={{ format: (v) => `$${v}` }}
+            axisBottom={{ tickRotation: 0, tickValues: Math.min(6, summary.daily.length), format: (v) => shortDate(String(v)) }}
+            axisLeft={{ format: (v) => `$${v}`, tickValues: 4 }}
             enableArea
-            areaOpacity={0.15}
-            colors={['#4ade80']}
+            areaOpacity={0.12}
+            colors={['#d99a2b']}
             lineWidth={2}
             pointSize={0}
             enableGridX={false}
             useMesh
             enableSlices="x"
             sliceTooltip={({ slice }) => (
-              <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
-                <div className="text-[var(--color-muted)]">{slice.points[0].data.xFormatted}</div>
-                <div className="font-mono font-semibold text-[#e8edf5]">
+              <div className="rounded-md border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
+                <div className="text-[var(--color-muted)]">
+                  {shortDate(String(slice.points[0].data.x))}
+                </div>
+                <div className="num font-semibold text-[var(--color-text)]">
                   {money(Number(slice.points[0].data.y))}
                 </div>
               </div>
@@ -124,7 +169,7 @@ export default function StatementView({ data }: { data: Analysis }) {
             motionConfig="gentle"
           />
         </div>
-      </Panel>
+      </motion.section>
     </div>
   )
 }

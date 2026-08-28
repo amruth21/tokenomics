@@ -18,8 +18,11 @@ const SOURCE_ICON: Record<Analysis['meta']['source'], typeof Database> = {
 
 function formatRange(from: string, to: string) {
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
-  const f = new Date(from + 'T00:00:00')
-  const t = new Date(to + 'T00:00:00')
+  // meta.from/to may be a date ('2026-07-26') or a full ISO timestamp — handle both.
+  const parse = (v: string) => new Date(v.length <= 10 ? `${v}T00:00:00` : v)
+  const f = parse(from)
+  const t = parse(to)
+  if (Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())) return ''
   return `${f.toLocaleDateString('en-US', opts)} – ${t.toLocaleDateString('en-US', opts)}`
 }
 
@@ -41,11 +44,13 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
       className="relative flex h-full shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-ink)]"
     >
       <div className={clsx('flex items-center gap-2 px-4 pt-5 pb-4', collapsed && 'justify-center px-0')}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent)]/15">
-          <span className="text-sm font-bold text-[var(--color-accent)]">T</span>
-        </div>
-        {!collapsed && (
-          <span className="text-sm font-semibold tracking-tight text-[#f2f5fa]">Tokenomics</span>
+        {collapsed ? (
+          <span className="display text-2xl text-[var(--color-accent)]">T</span>
+        ) : (
+          <div className="leading-none">
+            <span className="display text-xl text-[var(--color-text)]">Tokenomics</span>
+            <span className="mt-1 block h-px w-full bg-[var(--color-accent)]/45" />
+          </div>
         )}
       </div>
 
@@ -63,8 +68,8 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
                 'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors',
                 collapsed && 'justify-center px-0',
                 active
-                  ? 'bg-[var(--color-surface)] text-[#f2f5fa]'
-                  : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[#e8edf5]',
+                  ? 'bg-[var(--color-surface)] text-[#f2ece0]'
+                  : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[#f2ece0]',
               )}
             >
               {active && (
@@ -86,7 +91,7 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
           type="button"
           onClick={onToggleCollapsed}
           className={clsx(
-            'mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[#e8edf5]',
+            'mb-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[var(--color-muted)] hover:bg-[var(--color-surface)]/60 hover:text-[#f2ece0]',
             collapsed && 'justify-center',
           )}
         >
@@ -98,7 +103,7 @@ export default function Sidebar({ activeId, onSelect, collapsed, onToggleCollaps
           <SourceIcon size={15} className="shrink-0 text-[var(--color-accent)]" strokeWidth={1.75} />
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-[#e8edf5]">{SOURCE_LABEL[meta.source]}</p>
+              <p className="truncate text-xs font-medium text-[#f2ece0]">{SOURCE_LABEL[meta.source]}</p>
               <p className="truncate text-[11px] tabular-nums text-[var(--color-muted)]">
                 {formatRange(meta.from, meta.to)}
               </p>

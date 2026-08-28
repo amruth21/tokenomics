@@ -64,9 +64,9 @@ function AdviceCard({ rec, delay }: { rec: Recommendation; delay: number }) {
             <Badge>{categoryLabel[rec.category]}</Badge>
             <Badge tone={rec.confidence}>{rec.confidence}</Badge>
           </div>
-          <h3 className="text-lg font-semibold text-[#e8edf5]">{rec.title}</h3>
+          <h3 className="text-lg font-semibold text-[#f2ece0]">{rec.title}</h3>
           <p className="mt-2 text-sm leading-relaxed text-[var(--color-muted)]">{rec.body}</p>
-          <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[#e8edf5]">
+          <div className="mt-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-sm text-[#f2ece0]">
             <span className="text-[var(--color-accent)]">Fix: </span>
             {rec.fix}
           </div>
@@ -107,11 +107,11 @@ function AdviceCard({ rec, delay }: { rec: Recommendation; delay: number }) {
                 >
                   <div className="min-w-0">
                     <div className="font-mono text-[var(--color-muted)]">session {ev.sessionId}</div>
-                    <div className="mt-0.5 text-[#e8edf5]">{ev.label}</div>
+                    <div className="mt-0.5 text-[#f2ece0]">{ev.label}</div>
                   </div>
                   <div className="flex shrink-0 gap-4 font-mono tabular-nums text-[var(--color-muted)]">
                     <span>{ev.turns} turns</span>
-                    <span className="text-[#e8edf5]">{money(ev.cost)}</span>
+                    <span className="text-[#f2ece0]">{money(ev.cost)}</span>
                   </div>
                 </div>
               ))}

@@ -16,7 +16,7 @@ export function ViewHeader({ eyebrow, title, subtitle }: { eyebrow: string; titl
       className="mb-8"
     >
       <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--color-accent)]">{eyebrow}</div>
-      <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#e8edf5] sm:text-4xl">{title}</h1>
+      <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#f2ece0] sm:text-4xl">{title}</h1>
       {subtitle && <p className="mt-2 max-w-2xl text-sm text-[var(--color-muted)]">{subtitle}</p>}
     </motion.div>
   )
@@ -47,7 +47,7 @@ export function StatTile({
   tone?: 'default' | 'cash' | 'burn' | 'warn'
 }) {
   const toneClass = {
-    default: 'text-[#e8edf5]',
+    default: 'text-[#f2ece0]',
     cash: 'text-[var(--color-cash)]',
     burn: 'text-[var(--color-burn)]',
     warn: 'text-[var(--color-warn)]',
@@ -55,7 +55,7 @@ export function StatTile({
   return (
     <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] p-4">
       <div className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">{label}</div>
-      <div className={`mt-1 font-mono text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</div>
+      <div className={`mt-1 display num text-2xl font-semibold num ${toneClass}`}>{value}</div>
       {sub && <div className="mt-1 text-xs text-[var(--color-muted)]">{sub}</div>}
     </div>
   )
@@ -92,7 +92,7 @@ export function CountUp({ value, formatter, duration = 0.9 }: { value: number; f
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, duration])
-  return <span className="tabular-nums">{formatter(display)}</span>
+  return <span className="num">{formatter(display)}</span>
 }
 
 export function Skeleton({ className = '' }: { className?: string }) {
@@ -117,7 +117,7 @@ export function ViewSkeleton() {
 export function EmptyState({ title, body }: { title: string; body?: string }) {
   return (
     <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--color-line)] p-10 text-center">
-      <div className="text-sm font-medium text-[#e8edf5]">{title}</div>
+      <div className="text-sm font-medium text-[#f2ece0]">{title}</div>
       {body && <div className="mt-1 max-w-sm text-xs text-[var(--color-muted)]">{body}</div>}
     </div>
   )

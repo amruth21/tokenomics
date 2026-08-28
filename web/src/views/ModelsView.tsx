@@ -47,7 +47,7 @@ function ModelsViewBody({ models }: { models: Analysis['models'] }) {
 
       {/* $/turn table */}
       <Panel delay={0.15} className="mb-6 overflow-x-auto">
-        <div className="mb-3 text-sm font-medium text-[#e8edf5]">Cost per turn</div>
+        <div className="mb-3 text-sm font-medium text-[#f2ece0]">Cost per turn</div>
         <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="border-b border-[var(--color-line)] text-left text-xs uppercase tracking-wide text-[var(--color-muted)]">
@@ -66,13 +66,13 @@ function ModelsViewBody({ models }: { models: Analysis['models'] }) {
                 <tr key={m.model} className="border-b border-[var(--color-line)]/50 last:border-0">
                   <td className="py-2 pr-4">
                     <span className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: modelColor[m.model] ?? '#94a3b8' }} />
+                      <span className="h-2 w-2 rounded-full" style={{ background: modelColor[m.model] ?? '#8e8271' }} />
                       {m.model}
                     </span>
                   </td>
                   <td className="py-2 pr-4 font-mono tabular-nums text-[var(--color-muted)]">{m.turns.toLocaleString()}</td>
-                  <td className="py-2 pr-4 font-mono tabular-nums text-[#e8edf5]">{money(m.cost)}</td>
-                  <td className="py-2 pr-4 font-mono tabular-nums text-[#e8edf5]">{money(m.costPerTurn)}</td>
+                  <td className="py-2 pr-4 font-mono tabular-nums text-[#f2ece0]">{money(m.cost)}</td>
+                  <td className="py-2 pr-4 font-mono tabular-nums text-[#f2ece0]">{money(m.costPerTurn)}</td>
                   <td className="py-2 font-mono tabular-nums text-[var(--color-muted)]">
                     {(m.avgContextRead / 1000).toFixed(0)}k tok
                   </td>
@@ -84,7 +84,7 @@ function ModelsViewBody({ models }: { models: Analysis['models'] }) {
 
       {/* downgrade simulator */}
       <Panel delay={0.2}>
-        <div className="mb-1 text-sm font-medium text-[#e8edf5]">Downgrade simulator</div>
+        <div className="mb-1 text-sm font-medium text-[#f2ece0]">Downgrade simulator</div>
         <p className="mb-4 text-xs text-[var(--color-muted)]">
           Route Opus turns with small output and no tool call under this ceiling to Sonnet. We can't prove the
           smaller model would have succeeded — this shows what's <em>candidate</em>, not what you'd have saved.
@@ -133,7 +133,7 @@ function AllocationBar({
   const total = metric === 'turns' ? totalTurns : totalCost
   return (
     <Panel delay={0.1}>
-      <div className="mb-3 text-sm font-medium text-[#e8edf5]">{title}</div>
+      <div className="mb-3 text-sm font-medium text-[#f2ece0]">{title}</div>
       <div className="flex h-8 w-full overflow-hidden rounded-lg border border-[var(--color-line)]">
         {models.map((m) => {
           const value = metric === 'turns' ? m.turns : m.cost
@@ -145,7 +145,7 @@ function AllocationBar({
               animate={{ width: `${share * 100}%` }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
               className="h-full"
-              style={{ background: modelColor[m.model] ?? '#94a3b8' }}
+              style={{ background: modelColor[m.model] ?? '#8e8271' }}
               title={`${m.model}: ${pct(share)}`}
             />
           )
@@ -157,8 +157,8 @@ function AllocationBar({
           const share = total > 0 ? value / total : 0
           return (
             <span key={m.model} className="inline-flex items-center gap-1.5 text-[var(--color-muted)]">
-              <span className="h-2 w-2 rounded-full" style={{ background: modelColor[m.model] ?? '#94a3b8' }} />
-              {m.model.replace('claude-', '')} <span className="font-mono tabular-nums text-[#e8edf5]">{pct(share)}</span>
+              <span className="h-2 w-2 rounded-full" style={{ background: modelColor[m.model] ?? '#8e8271' }} />
+              {m.model.replace('claude-', '')} <span className="font-mono tabular-nums text-[#f2ece0]">{pct(share)}</span>
             </span>
           )
         })}

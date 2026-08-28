@@ -50,7 +50,7 @@ function Shell() {
               </button>
             )}
             <div>
-              <h1 className="text-base font-semibold tracking-tight text-[#f2f5fa]">
+              <h1 className="text-base font-semibold tracking-tight text-[#f2ece0]">
                 {activeItem?.label ?? 'Tokenomics'}
               </h1>
             </div>

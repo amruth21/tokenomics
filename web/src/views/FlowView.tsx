@@ -27,14 +27,14 @@ export default function FlowView({ data }: { data: Analysis }) {
 
       <Panel className="h-[560px]" delay={0.1}>
         <div className="mb-2 flex items-center justify-between">
-          <div className="text-sm font-medium text-[#e8edf5]">
+          <div className="text-sm font-medium text-[#f2ece0]">
             {activeNode ? `Highlighting: ${activeNode}` : `Total spend: ${money(total)}`}
           </div>
           {activeNode && (
             <button
               type="button"
               onClick={() => setActiveNode(null)}
-              className="rounded-full border border-[var(--color-line)] px-3 py-1 text-xs text-[var(--color-muted)] hover:text-[#e8edf5]"
+              className="rounded-full border border-[var(--color-line)] px-3 py-1 text-xs text-[var(--color-muted)] hover:text-[#f2ece0]"
             >
               Clear
             </button>
@@ -62,7 +62,7 @@ export default function FlowView({ data }: { data: Analysis }) {
             labelOrientation="horizontal"
             labelPadding={10}
             label={(n) => n.id}
-            labelTextColor="#e8edf5"
+            labelTextColor="#f2ece0"
             animate
             motionConfig="gentle"
             onClick={(node) => {
@@ -73,12 +73,12 @@ export default function FlowView({ data }: { data: Analysis }) {
                 <div className="text-[var(--color-muted)]">
                   {link.source.id} → {link.target.id}
                 </div>
-                <div className="font-mono font-semibold text-[#e8edf5]">{money(link.value)}</div>
+                <div className="font-mono font-semibold text-[#f2ece0]">{money(link.value)}</div>
               </div>
             )}
             nodeTooltip={({ node }) => (
               <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2 text-xs">
-                <div className="font-medium text-[#e8edf5]">{node.id}</div>
+                <div className="font-medium text-[#f2ece0]">{node.id}</div>
                 <div className="font-mono tabular-nums text-[var(--color-muted)]">{money(node.value)}</div>
               </div>
             )}

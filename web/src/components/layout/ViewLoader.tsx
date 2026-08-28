@@ -24,7 +24,7 @@ function ComingOnline({ label }: { label: string }) {
     <Card className="flex flex-col items-center justify-center gap-3 px-10 py-24 text-center">
       <FileWarning size={28} className="text-[var(--color-muted)]" strokeWidth={1.5} />
       <div>
-        <p className="text-sm font-medium text-[#e8edf5]">{label} is coming online</p>
+        <p className="text-sm font-medium text-[#f2ece0]">{label} is coming online</p>
         <p className="mt-1 text-xs text-[var(--color-muted)]">
           This view is still being built. Check back shortly.
         </p>

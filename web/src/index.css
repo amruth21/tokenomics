@@ -1,38 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Archivo:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Tokenomics — a single committed dark theme.
+   Warm charcoal tinted toward ochre. Deliberately NOT sky-on-near-black:
+   that palette is the generic-AI look this project is designed against.
+   Colour carries meaning here — ochre draws the eye, burn marks loss,
+   cash marks what is working. Decorative colour is a bug.
+--------------------------------------------------------------------------- */
 @theme {
-  --color-ink: #07090c;
-  --color-surface: #0e1218;
-  --color-surface-2: #161b23;
-  --color-line: #232a35;
-  --color-muted: #8b97a8;
-  --color-cash: #4ade80;
-  --color-burn: #fb7185;
-  --color-warn: #fbbf24;
-  --color-accent: #7dd3fc;
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Ground: warm charcoal, never pure black */
+  --color-ink: #151109;
+  --color-surface: #1d1810;
+  --color-surface-2: #262019;
+  --color-line: #362e23;
+  --color-line-soft: #29221a;
+
+  /* Type */
+  --color-text: #f2ece0;
+  --color-text-dim: #c3b8a5;
+  --color-muted: #8e8271;
+
+  /* Meaning */
+  --color-accent: #d99a2b;   /* ochre — attention, the thing to look at */
+  --color-accent-dim: #8a6218;
+  --color-burn: #c4553d;     /* terracotta — loss, waste */
+  --color-cash: #869c5a;     /* olive — saved, working, keep doing this */
+  --color-warn: #c98a3a;
+
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Fluid display sizes — the number is the hero */
+  --text-hero: clamp(3.25rem, 7vw, 5.75rem);
+  --text-figure: clamp(2rem, 3.5vw, 3rem);
+  --text-lede: clamp(1.05rem, 1.5vw, 1.375rem);
+
+  /* Exponential easing — real objects decelerate smoothly */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html, body, #root { height: 100%; }
+
 body {
   background: var(--color-ink);
-  color: #e8edf5;
-  font-family: var(--font-display);
-  font-feature-settings: "tnum" 1, "cv11" 1;
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1, "cv05" 1;
+  -webkit-font-smoothing: antialiased;
 }
 
-* { box-sizing: border-box; }
+/* Every figure is tabular. Money that shifts width while animating reads as sloppy. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
 
-::selection { background: color-mix(in srgb, var(--color-accent) 35%, transparent); }
+/* Display type: Fraunces at low softness, tight tracking, optical sizing on. */
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 0.95;
+}
+
+/* A hairline rule that carries the accent without becoming decoration. */
+.rule-accent {
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-dim) 38%, transparent 100%);
+}
+
+::selection { background: var(--color-accent); color: var(--color-ink); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--color-surface-2);
-  border-radius: 999px;
-  border: 2px solid var(--color-ink);
-}
+::-webkit-scrollbar-track { background: var(--color-ink); }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 999px; border: 2px solid var(--color-ink); }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-line); }
 
-.tabular-nums { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
